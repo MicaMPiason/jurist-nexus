@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Upload, FileText, Brain, CheckCircle, Calendar, Target } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, FileText, Brain, CheckCircle, Calendar, Target, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 
 export default function Analysis() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState("general");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const analysisTypes = [
     {
@@ -40,6 +43,57 @@ export default function Analysis() {
     "5. Insights estratégicos: Sugestões para defesa ou ação",
   ];
 
+  const validateFile = (file: File): string | null => {
+    if (!file.type.includes('pdf')) {
+      return 'Por favor, selecione apenas arquivos PDF.';
+    }
+    
+    const maxSize = 20 * 1024 * 1024; // 20MB in bytes
+    if (file.size > maxSize) {
+      return 'O arquivo deve ter no máximo 20MB.';
+    }
+    
+    return null;
+  };
+
+  const handleFileSelect = (file: File) => {
+    const error = validateFile(file);
+    if (error) {
+      setFileError(error);
+      setSelectedFile(null);
+    } else {
+      setFileError(null);
+      setSelectedFile(file);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -66,18 +120,59 @@ export default function Analysis() {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Upload Area */}
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-gradient-subtle hover:bg-muted/50 transition-colors cursor-pointer">
-              <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Arraste e solte um arquivo PDF ou clique para selecionar
-              </p>
-              <Button variant="outline" className="mb-2">
-                <FileText className="h-4 w-4 mr-2" />
-                Selecionar PDF
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Máximo 10MB
-              </p>
+            <div className="space-y-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+              
+              {!selectedFile ? (
+                <div 
+                  onClick={handleUploadClick}
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-gradient-subtle hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Arraste e solte um arquivo PDF ou clique para selecionar
+                  </p>
+                  <Button variant="outline" type="button" className="mb-2">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Selecionar PDF
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Máximo 20MB
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg p-4 bg-background">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {fileError && (
+                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  {fileError}
+                </div>
+              )}
             </div>
 
             {/* Analysis Types */}
