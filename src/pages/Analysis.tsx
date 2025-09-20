@@ -1,16 +1,19 @@
 import { useState, useRef } from "react";
-import { Upload, FileText, Brain, CheckCircle, Calendar, Target, X } from "lucide-react";
+import { Upload, FileText, Brain, CheckCircle, Calendar, Target, X, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Analysis() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState("general");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const analysisTypes = [
     {
@@ -92,6 +95,53 @@ export default function Analysis() {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleAnalyzeDocument = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "Erro",
+        description: "Por favor, selecione um arquivo PDF primeiro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('analysisType', selectedAnalysisType);
+
+      const response = await fetch('https://n8n.bridgelegal.com.br/webhook/AnaliseIA', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na análise: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Análise Concluída",
+        description: "O documento foi analisado com sucesso pela IA.",
+      });
+
+      console.log('Resultado da análise:', result);
+      
+    } catch (error) {
+      console.error('Erro ao analisar documento:', error);
+      toast({
+        title: "Erro na Análise",
+        description: "Não foi possível analisar o documento. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -205,9 +255,22 @@ export default function Analysis() {
             </div>
 
             {/* Analyze Button */}
-            <Button className="w-full bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200">
-              <Brain className="h-4 w-4 mr-2" />
-              Analisar Documento
+            <Button 
+              className="w-full bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200"
+              onClick={handleAnalyzeDocument}
+              disabled={!selectedFile || isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Analisando...
+                </>
+              ) : (
+                <>
+                  <Brain className="h-4 w-4 mr-2" />
+                  Analisar Documento
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
