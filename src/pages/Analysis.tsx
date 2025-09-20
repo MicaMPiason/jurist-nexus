@@ -113,8 +113,10 @@ export default function Analysis() {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('analysisType', selectedAnalysisType);
+      formData.append('fileName', selectedFile.name);
+      formData.append('fileSize', selectedFile.size.toString());
 
-      const response = await fetch('https://n8n.bridgelegal.com.br/webhook/AnaliseIA', {
+      const response = await fetch('https://n8n.bridgelegal.com.br/webhook-test/AnaliseIA', {
         method: 'POST',
         body: formData,
       });
