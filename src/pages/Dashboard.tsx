@@ -52,40 +52,42 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">
+      <div className="px-1">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-1">
           Visão geral dos seus processos e atividades jurídicas
         </p>
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         {metrics.map((metric, index) => (
           <MetricsCard key={index} {...metric} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {/* Monthly Calendar */}
         <Card className="shadow-bridge-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Agenda do Mês - Agosto 2025
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+              <span className="hidden sm:inline">Agenda do Mês - Agosto 2025</span>
+              <span className="sm:hidden">Agosto 2025</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs md:text-sm">
               Próximos eventos e prazos
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-1 mb-4">
+          <CardContent className="p-3 md:p-6">
+            <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-3 md:mb-4">
               {/* Days of week header */}
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => (
-                <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">
-                  {day}
+                <div key={day} className="text-center text-[10px] md:text-xs text-muted-foreground font-medium py-1 md:py-2">
+                  <span className="hidden sm:inline">{day}</span>
+                  <span className="sm:hidden">{day.charAt(0)}</span>
                 </div>
               ))}
               
@@ -96,12 +98,16 @@ export default function Dashboard() {
                 const isToday = date === 19;
                 
                 if (date < 1 || date > 31) {
-                  return <div key={i} className="h-8"></div>;
+                  return <div key={i} className="h-6 md:h-8"></div>;
                 }
                 
                 return (
-                  <div key={i} className="h-8 flex items-center justify-center relative">
-                    <span className={`text-sm ${isToday ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
+                  <div key={i} className="h-6 md:h-8 flex items-center justify-center relative">
+                    <span className={`text-xs md:text-sm font-medium ${
+                      isToday 
+                        ? 'bg-primary text-primary-foreground rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center text-[10px] md:text-xs' 
+                        : 'text-foreground hover:bg-muted/50 rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center transition-colors'
+                    }`}>
                       {date}
                     </span>
                     {hasEvent && (
@@ -111,7 +117,7 @@ export default function Dashboard() {
                 );
               })}
             </div>
-            <div className="text-center text-xs text-muted-foreground">
+            <div className="text-center text-[10px] md:text-xs text-muted-foreground">
               • 7 eventos este mês
             </div>
           </CardContent>
@@ -120,26 +126,26 @@ export default function Dashboard() {
         {/* Status Chart */}
         <Card className="shadow-bridge-sm">
           <CardHeader>
-            <CardTitle>Distribuição por Status</CardTitle>
+            <CardTitle className="text-base md:text-lg">Distribuição por Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-3 md:p-6">
+            <div className="space-y-3 md:space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-primary rounded-full"></div>
-                  <span className="text-sm">Em Andamento</span>
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="w-3 h-3 md:w-4 md:h-4 bg-primary rounded-full"></div>
+                  <span className="text-xs md:text-sm">Em Andamento</span>
                 </div>
-                <span className="text-sm font-medium">1</span>
+                <span className="text-xs md:text-sm font-medium">1</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-accent rounded-full"></div>
-                  <span className="text-sm">Aguardando Audiência</span>
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className="w-3 h-3 md:w-4 md:h-4 bg-accent rounded-full"></div>
+                  <span className="text-xs md:text-sm">Aguardando Audiência</span>
                 </div>
-                <span className="text-sm font-medium">1</span>
+                <span className="text-xs md:text-sm font-medium">1</span>
               </div>
-              <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-primary w-1/2"></div>
+              <div className="mt-3 md:mt-4 h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-primary w-1/2 transition-all duration-300"></div>
               </div>
             </div>
           </CardContent>
@@ -149,27 +155,27 @@ export default function Dashboard() {
       {/* Upcoming Tasks */}
       <Card className="shadow-bridge-sm">
         <CardHeader>
-          <CardTitle>Próximos Prazos e Tarefas</CardTitle>
-          <CardDescription>Acompanhe suas próximas atividades</CardDescription>
+          <CardTitle className="text-base md:text-lg">Próximos Prazos e Tarefas</CardTitle>
+          <CardDescription className="text-xs md:text-sm">Acompanhe suas próximas atividades</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 md:p-6">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">
                     Cliente
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Prazo Final
+                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">
+                    Prazo
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">
                     Tipo
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground hidden sm:table-cell">
                     Processo/Serviço
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium text-muted-foreground">
                     Tarefa
                   </th>
                 </tr>
@@ -177,15 +183,18 @@ export default function Dashboard() {
               <tbody>
                 {upcomingTasks.map((task, index) => (
                   <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4 text-sm">{task.client}</td>
-                    <td className="py-3 px-4 text-sm font-medium">{task.deadline}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant="secondary" className="text-xs">
+                    <td className="py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-medium">{task.client}</td>
+                    <td className="py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm font-semibold text-warning">{task.deadline}</td>
+                    <td className="py-2 md:py-3 px-2 md:px-4">
+                      <Badge variant="secondary" className="text-[10px] md:text-xs px-1.5 py-0.5">
                         {task.type}
                       </Badge>
                     </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{task.process}</td>
-                    <td className="py-3 px-4 text-sm">{task.task}</td>
+                    <td className="py-2 md:py-3 px-2 md:px-4 text-xs md:text-sm text-muted-foreground hidden sm:table-cell">{task.process}</td>
+                    <td className="py-2 md:py-3 px-2 md:px-4">
+                      <div className="text-xs md:text-sm">{task.task}</div>
+                      <div className="text-[10px] md:text-xs text-muted-foreground sm:hidden mt-1">{task.process}</div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
