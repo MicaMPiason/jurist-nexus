@@ -69,30 +69,50 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Document Upload Area */}
+        {/* Monthly Calendar */}
         <Card className="shadow-bridge-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              Analisar Documento Jurídico
+              <Calendar className="h-5 w-5 text-primary" />
+              Agenda do Mês - Agosto 2025
             </CardTitle>
             <CardDescription>
-              IA extrairá informações automaticamente
+              Próximos eventos e prazos
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center bg-gradient-subtle">
-              <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-sm text-muted-foreground mb-4">
-                Arraste e solte um arquivo PDF ou clique para selecionar
-              </p>
-              <Button variant="outline" className="mb-2">
-                <FileText className="h-4 w-4 mr-2" />
-                Selecionar Arquivo
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Máximo 10MB, apenas PDFs
-              </p>
+            <div className="grid grid-cols-7 gap-1 mb-4">
+              {/* Days of week header */}
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => (
+                <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">
+                  {day}
+                </div>
+              ))}
+              
+              {/* Calendar grid */}
+              {Array.from({ length: 35 }, (_, i) => {
+                const date = i - 5; // Adjust for month start
+                const hasEvent = [20, 21, 23, 25, 26].includes(date);
+                const isToday = date === 19;
+                
+                if (date < 1 || date > 31) {
+                  return <div key={i} className="h-8"></div>;
+                }
+                
+                return (
+                  <div key={i} className="h-8 flex items-center justify-center relative">
+                    <span className={`text-sm ${isToday ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
+                      {date}
+                    </span>
+                    {hasEvent && (
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full bg-primary"></div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="text-center text-xs text-muted-foreground">
+              • 7 eventos este mês
             </div>
           </CardContent>
         </Card>
