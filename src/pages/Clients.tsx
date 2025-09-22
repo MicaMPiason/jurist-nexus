@@ -4,9 +4,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+
+const clientSchema = z.object({
+  name: z.string().min(1, "Nome é obrigatório"),
+  email: z.string().email("E-mail inválido"),
+  phone: z.string().min(1, "Telefone é obrigatório"),
+  maritalStatus: z.string().min(1, "Estado civil é obrigatório"),
+  profession: z.string().min(1, "Profissão é obrigatória"),
+  cpf: z.string().min(11, "CPF é obrigatório"),
+  electronicAddress: z.string().email("Endereço eletrônico inválido"),
+  street: z.string().min(1, "Rua é obrigatória"),
+  number: z.string().min(1, "Número é obrigatório"),
+  city: z.string().min(1, "Cidade é obrigatória"),
+  cep: z.string().min(8, "CEP é obrigatório"),
+});
+
+type ClientFormData = z.infer<typeof clientSchema>;
 
 export default function Clients() {
-  const clients = [
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [clients, setClients] = useState([
     {
       id: "1",
       name: "cliente teste",
@@ -14,6 +40,14 @@ export default function Clients() {
       phone: "Não informado",
       processes: "1",
       since: "19/08/2025",
+      maritalStatus: "Solteiro",
+      profession: "Desenvolvedor",
+      cpf: "123.456.789-00",
+      electronicAddress: "teste@teste.com",
+      street: "Rua das Flores",
+      number: "123",
+      city: "São Paulo",
+      cep: "01234-567",
     },
     {
       id: "2",
@@ -22,8 +56,61 @@ export default function Clients() {
       phone: "Não informado",
       processes: "1",
       since: "02/08/2025",
+      maritalStatus: "Casada",
+      profession: "Advogada",
+      cpf: "987.654.321-00",
+      electronicAddress: "maria@exemplo.com",
+      street: "Av. Principal",
+      number: "456",
+      city: "Rio de Janeiro",
+      cep: "20000-000",
     },
-  ];
+  ]);
+
+  const form = useForm<ClientFormData>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      maritalStatus: "",
+      profession: "",
+      cpf: "",
+      electronicAddress: "",
+      street: "",
+      number: "",
+      city: "",
+      cep: "",
+    },
+  });
+
+  const handleAddClient = (data: ClientFormData) => {
+    const newClient = {
+      id: (clients.length + 1).toString(),
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      processes: "0",
+      since: new Date().toLocaleDateString("pt-BR"),
+      maritalStatus: data.maritalStatus,
+      profession: data.profession,
+      cpf: data.cpf,
+      electronicAddress: data.electronicAddress,
+      street: data.street,
+      number: data.number,
+      city: data.city,
+      cep: data.cep,
+    };
+
+    setClients([...clients, newClient]);
+    setIsDialogOpen(false);
+    form.reset();
+    
+    toast({
+      title: "Cliente adicionado",
+      description: "O cliente foi adicionado com sucesso.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -35,7 +122,10 @@ export default function Clients() {
             Cadastro e gestão de clientes
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200">
+        <Button 
+          className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200"
+          onClick={() => setIsDialogOpen(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Novo Cliente
         </Button>
@@ -182,6 +272,193 @@ export default function Clients() {
           </CardContent>
         </Card>
       </div>
+
+      {/* New Client Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Novo Cliente</DialogTitle>
+            <DialogDescription>
+              Preencha as informações do novo cliente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleAddClient)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome completo" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>E-mail</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@exemplo.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Telefone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(11) 99999-9999" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="maritalStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estado Civil</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Solteiro(a), Casado(a), etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="profession"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profissão</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Profissão do cliente" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="cpf"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CPF</FormLabel>
+                      <FormControl>
+                        <Input placeholder="000.000.000-00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="electronicAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endereço Eletrônico</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="endereco@exemplo.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="street"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rua</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Rua/Avenida" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número</FormLabel>
+                      <FormControl>
+                        <Input placeholder="123" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="cep"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CEP</FormLabel>
+                      <FormControl>
+                        <Input placeholder="00000-000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cidade</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome da cidade" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  Adicionar Cliente
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
