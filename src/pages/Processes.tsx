@@ -6,30 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MetricsCard } from "@/components/MetricsCard";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export default function Processes() {
-  const metrics = [
-    {
-      title: "Total de Processos",
-      value: "2",
-      icon: Scale,
-      variant: "primary" as const,
-    },
-    {
-      title: "Em Andamento",
-      value: "1",
-      icon: Clock,
-      variant: "warning" as const,
-    },
-    {
-      title: "Aguardando Audiência",
-      value: "1",
-      icon: Calendar,
-      variant: "success" as const,
-    },
-  ];
+  const { toast } = useToast();
 
-  const processesInProgress = [
+  const [processesInProgress, setProcessesInProgress] = useState([
     {
       id: "123",
       number: "123232132",
@@ -40,9 +23,9 @@ export default function Processes() {
       nextDate: "Nenhuma tarefa pendente",
       status: "Ativo",
     },
-  ];
+  ]);
 
-  const processesWaitingHearing = [
+  const [processesWaitingHearing, setProcessesWaitingHearing] = useState([
     {
       id: "456",
       number: "2312131",
@@ -52,6 +35,68 @@ export default function Processes() {
       type: "Cível",
       nextDate: "23/08/2025 - Tarefa",
       status: "Ativo",
+    },
+  ]);
+
+  const handleConcludeProcess = (processId: string) => {
+    // Update process status to concluded
+    setProcessesInProgress(prev => 
+      prev.map(process => 
+        process.id === processId 
+          ? { ...process, status: "Concluído" }
+          : process
+      )
+    );
+    setProcessesWaitingHearing(prev => 
+      prev.map(process => 
+        process.id === processId 
+          ? { ...process, status: "Concluído" }
+          : process
+      )
+    );
+    toast({
+      title: "Processo concluído",
+      description: "O processo foi marcado como concluído com sucesso.",
+    });
+  };
+
+  const handleEditProcess = (processId: string) => {
+    toast({
+      title: "Editar processo",
+      description: "Funcionalidade de edição será implementada em breve.",
+    });
+  };
+
+  const handleDeleteProcess = (processId: string) => {
+    setProcessesInProgress(prev => prev.filter(process => process.id !== processId));
+    setProcessesWaitingHearing(prev => prev.filter(process => process.id !== processId));
+    toast({
+      title: "Processo excluído",
+      description: "O processo foi excluído com sucesso.",
+      variant: "destructive",
+    });
+  };
+
+  const totalProcesses = processesInProgress.length + processesWaitingHearing.length;
+
+  const metrics = [
+    {
+      title: "Total de Processos",
+      value: totalProcesses.toString(),
+      icon: Scale,
+      variant: "primary" as const,
+    },
+    {
+      title: "Em Andamento",
+      value: processesInProgress.length.toString(),
+      icon: Clock,
+      variant: "warning" as const,
+    },
+    {
+      title: "Aguardando Audiência",
+      value: processesWaitingHearing.length.toString(),
+      icon: Calendar,
+      variant: "success" as const,
     },
   ];
 
@@ -64,7 +109,17 @@ export default function Processes() {
     }
   };
 
-  const ProcessCard = ({ process }: { process: any }) => (
+  const ProcessCard = ({ 
+    process, 
+    onConclude, 
+    onEdit, 
+    onDelete 
+  }: { 
+    process: any;
+    onConclude: (id: string) => void;
+    onEdit: (id: string) => void;
+    onDelete: (id: string) => void;
+  }) => (
     <Card className="shadow-bridge-sm hover:shadow-bridge-md transition-all duration-200">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
@@ -83,15 +138,18 @@ export default function Processes() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onConclude(process.id)}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Concluir
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(process.id)}>
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem 
+                className="text-destructive" 
+                onClick={() => onDelete(process.id)}
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Excluir
               </DropdownMenuItem>
@@ -184,7 +242,13 @@ export default function Processes() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {processesInProgress.map((process) => (
-            <ProcessCard key={process.id} process={process} />
+            <ProcessCard 
+              key={process.id} 
+              process={process} 
+              onConclude={handleConcludeProcess}
+              onEdit={handleEditProcess}
+              onDelete={handleDeleteProcess}
+            />
           ))}
         </div>
       </div>
@@ -197,7 +261,13 @@ export default function Processes() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {processesWaitingHearing.map((process) => (
-            <ProcessCard key={process.id} process={process} />
+            <ProcessCard 
+              key={process.id} 
+              process={process} 
+              onConclude={handleConcludeProcess}
+              onEdit={handleEditProcess}
+              onDelete={handleDeleteProcess}
+            />
           ))}
         </div>
       </div>
