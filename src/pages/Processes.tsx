@@ -14,6 +14,8 @@ import { useState } from "react";
 export default function Processes() {
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProcess, setEditingProcess] = useState<any>(null);
   const [newProcess, setNewProcess] = useState({
     number: "",
     title: "",
@@ -102,9 +104,39 @@ export default function Processes() {
   };
 
   const handleEditProcess = (processId: string) => {
+    // Find the process to edit
+    const processToEdit = [...processesInProgress, ...processesWaitingHearing]
+      .find(process => process.id === processId);
+    
+    if (processToEdit) {
+      setEditingProcess(processToEdit);
+      setIsEditDialogOpen(true);
+    }
+  };
+
+  const handleSaveEditedProcess = () => {
+    if (!editingProcess) return;
+
+    // Update in processesInProgress
+    setProcessesInProgress(prev => 
+      prev.map(process => 
+        process.id === editingProcess.id ? editingProcess : process
+      )
+    );
+
+    // Update in processesWaitingHearing
+    setProcessesWaitingHearing(prev => 
+      prev.map(process => 
+        process.id === editingProcess.id ? editingProcess : process
+      )
+    );
+
+    setIsEditDialogOpen(false);
+    setEditingProcess(null);
+
     toast({
-      title: "Editar processo",
-      description: "Funcionalidade de edição será implementada em breve.",
+      title: "Processo atualizado",
+      description: "As alterações foram salvas com sucesso.",
     });
   };
 
@@ -335,6 +367,136 @@ export default function Processes() {
                 disabled={!newProcess.title || !newProcess.client || !newProcess.number}
               >
                 Adicionar Processo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Process Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Editar Processo</DialogTitle>
+              <DialogDescription>
+                Modifique os dados do processo jurídico.
+              </DialogDescription>
+            </DialogHeader>
+            {editingProcess && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-number" className="text-right">
+                    Número
+                  </Label>
+                  <Input
+                    id="edit-number"
+                    value={editingProcess.number}
+                    onChange={(e) => setEditingProcess(prev => ({ ...prev, number: e.target.value }))}
+                    className="col-span-3"
+                    placeholder="Ex: 123456789"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-title" className="text-right">
+                    Título
+                  </Label>
+                  <Input
+                    id="edit-title"
+                    value={editingProcess.title}
+                    onChange={(e) => setEditingProcess(prev => ({ ...prev, title: e.target.value }))}
+                    className="col-span-3"
+                    placeholder="Ex: Ação de Indenização"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-client" className="text-right">
+                    Cliente
+                  </Label>
+                  <Input
+                    id="edit-client"
+                    value={editingProcess.client}
+                    onChange={(e) => setEditingProcess(prev => ({ ...prev, client: e.target.value }))}
+                    className="col-span-3"
+                    placeholder="Ex: João da Silva"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-court" className="text-right">
+                    Tribunal
+                  </Label>
+                  <Input
+                    id="edit-court"
+                    value={editingProcess.court}
+                    onChange={(e) => setEditingProcess(prev => ({ ...prev, court: e.target.value }))}
+                    className="col-span-3"
+                    placeholder="Ex: Tribunal de Justiça"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-type" className="text-right">
+                    Tipo
+                  </Label>
+                  <Select 
+                    value={editingProcess.type} 
+                    onValueChange={(value) => setEditingProcess(prev => ({ ...prev, type: value }))}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cível">Cível</SelectItem>
+                      <SelectItem value="Criminal">Criminal</SelectItem>
+                      <SelectItem value="Trabalhista">Trabalhista</SelectItem>
+                      <SelectItem value="Tributário">Tributário</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-nextDate" className="text-right">
+                    Próxima Data
+                  </Label>
+                  <Input
+                    id="edit-nextDate"
+                    value={editingProcess.nextDate}
+                    onChange={(e) => setEditingProcess(prev => ({ ...prev, nextDate: e.target.value }))}
+                    className="col-span-3"
+                    placeholder="Ex: 25/12/2024 - Audiência"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-status" className="text-right">
+                    Status
+                  </Label>
+                  <Select 
+                    value={editingProcess.status} 
+                    onValueChange={(value) => setEditingProcess(prev => ({ ...prev, status: value }))}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Ativo">Ativo</SelectItem>
+                      <SelectItem value="Concluído">Concluído</SelectItem>
+                      <SelectItem value="Suspenso">Suspenso</SelectItem>
+                      <SelectItem value="Arquivado">Arquivado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                onClick={handleSaveEditedProcess}
+                disabled={!editingProcess?.title || !editingProcess?.client || !editingProcess?.number}
+              >
+                Salvar Alterações
               </Button>
             </DialogFooter>
           </DialogContent>
