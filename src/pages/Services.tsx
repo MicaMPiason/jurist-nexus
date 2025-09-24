@@ -1,188 +1,490 @@
-import { Plus, Search, Briefcase, Clock, CheckCircle, Edit, Trash2, MoreHorizontal } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MetricsCard } from "@/components/MetricsCard";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { MoreHorizontal, Plus, Search, Filter, DollarSign, FileText, Clock, Users, Edit, Trash2, CheckCircle } from 'lucide-react';
+import { MetricsCard } from '@/components/MetricsCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Tables } from '@/integrations/supabase/types';
 
-export default function Services() {
-  const metrics = [
-    {
-      title: "Total de Serviços",
-      value: "1",
-      icon: Briefcase,
-      variant: "primary" as const,
-    },
-    {
-      title: "Em Execução",
-      value: "0",
-      icon: Clock,
-      variant: "warning" as const,
-    },
-    {
-      title: "Finalizados",
-      value: "0",
-      icon: CheckCircle,
-      variant: "success" as const,
-    },
-  ];
+type Client = Tables<'clients'>;
+type Process = Tables<'processes'> & { client?: Client };
+type Service = Tables<'services'> & { client?: Client; process?: Process };
 
-  const services = [
-    {
-      id: "1",
-      service: "Elaboração de contrato",
-      client: "Maria da Silva",
-      value: "R$ 1,23",
-      nextTask: "20/10/2025 - Tarefa",
-      status: "A fazer",
-    },
-  ];
+const Services = () => {
+  const { toast } = useToast();
+  const [services, setServices] = useState<Service[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<string>('');
+  const [newService, setNewService] = useState({
+    name: '',
+    description: '',
+    client_id: '',
+    process_id: '',
+    value: '',
+    next_task: '',
+    next_task_date: '',
+    status: 'ativo' as const
+  });
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "a fazer":
-        return <Badge variant="secondary" className="bg-muted text-muted-foreground">A fazer</Badge>;
-      case "em execução":
-        return <Badge variant="secondary" className="bg-warning/10 text-warning">Em execução</Badge>;
-      case "finalizado":
-        return <Badge variant="secondary" className="bg-accent/10 text-accent">Finalizado</Badge>;
+  useEffect(() => {
+    fetchClients();
+    fetchServices();
+  }, []);
+
+  useEffect(() => {
+    if (selectedClient) {
+      fetchProcessesByClient(selectedClient);
+    } else {
+      setProcesses([]);
+    }
+  }, [selectedClient]);
+
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar clientes",
+        description: "Não foi possível carregar a lista de clientes.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchProcessesByClient = async (clientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('processes')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProcesses(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar processos",
+        description: "Não foi possível carregar os processos do cliente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('services')
+        .select(`
+          *,
+          client:clients(*),
+          process:processes(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setServices(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar serviços",
+        description: "Não foi possível carregar os serviços.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddService = async () => {
+    if (!newService.name || !newService.client_id || !newService.process_id) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('services')
+        .insert({
+          user_id: user.id,
+          client_id: newService.client_id,
+          process_id: newService.process_id,
+          name: newService.name,
+          description: newService.description,
+          value: newService.value ? parseFloat(newService.value) : null,
+          next_task: newService.next_task,
+          next_task_date: newService.next_task_date || null,
+          status: newService.status
+        })
+        .select(`
+          *,
+          client:clients(*),
+          process:processes(*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      setServices([data, ...services]);
+      setNewService({
+        name: '',
+        description: '',
+        client_id: '',
+        process_id: '',
+        value: '',
+        next_task: '',
+        next_task_date: '',
+        status: 'ativo'
+      });
+      setSelectedClient('');
+      setIsAddDialogOpen(false);
+      
+      toast({
+        title: "Serviço criado",
+        description: "O serviço foi criado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao criar serviço",
+        description: "Não foi possível criar o serviço.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', serviceId);
+
+      if (error) throw error;
+
+      setServices(services.filter(s => s.id !== serviceId));
+      toast({
+        title: "Serviço excluído",
+        description: "O serviço foi excluído com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir serviço",
+        description: "Não foi possível excluir o serviço.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusBadge = (status: Service['status']) => {
+    switch (status) {
+      case 'ativo':
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Ativo</Badge>;
+      case 'pausado':
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Pausado</Badge>;
+      case 'concluido':
+        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">Concluído</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge>Desconhecido</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Serviços</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Serviços</h1>
           <p className="text-muted-foreground">
-            Gestão de serviços jurídicos prestados
+            Gerencie todos os seus serviços jurídicos
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Serviço
-        </Button>
-      </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Serviço
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Novo Serviço</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="service-name">Nome do Serviço</Label>
+                <Input
+                  id="service-name"
+                  placeholder="Nome do serviço"
+                  value={newService.name}
+                  onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="service-description">Descrição</Label>
+                <Textarea
+                  id="service-description"
+                  placeholder="Descrição do serviço"
+                  value={newService.description}
+                  onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                />
+              </div>
 
-      {/* Filters */}
-      <Card className="shadow-bridge-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar serviços..." 
-                className="w-full pl-10"
-              />
+              <div className="grid gap-2">
+                <Label htmlFor="service-client">Cliente</Label>
+                <Select 
+                  value={selectedClient} 
+                  onValueChange={(value) => {
+                    setSelectedClient(value);
+                    setNewService({ ...newService, client_id: value, process_id: '' });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="service-process">Processo</Label>
+                <Select 
+                  value={newService.process_id} 
+                  onValueChange={(value) => setNewService({ ...newService, process_id: value })}
+                  disabled={!selectedClient}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={selectedClient ? "Selecione um processo" : "Primeiro selecione um cliente"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processes.map((process) => (
+                      <SelectItem key={process.id} value={process.id}>
+                        {process.number} - {process.subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="service-value">Valor</Label>
+                <Input
+                  id="service-value"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={newService.value}
+                  onChange={(e) => setNewService({ ...newService, value: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="service-next-task">Próxima Tarefa</Label>
+                <Input
+                  id="service-next-task"
+                  placeholder="Próxima tarefa"
+                  value={newService.next_task}
+                  onChange={(e) => setNewService({ ...newService, next_task: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="service-next-task-date">Data da Próxima Tarefa</Label>
+                <Input
+                  id="service-next-task-date"
+                  type="date"
+                  value={newService.next_task_date}
+                  onChange={(e) => setNewService({ ...newService, next_task_date: e.target.value })}
+                />
+              </div>
             </div>
-            <Select>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="a_fazer">A fazer</SelectItem>
-                <SelectItem value="em_execucao">Em execução</SelectItem>
-                <SelectItem value="finalizado">Finalizado</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Buscar cliente..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os clientes</SelectItem>
-                <SelectItem value="maria">Maria da Silva</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {metrics.map((metric, index) => (
-          <MetricsCard key={index} {...metric} />
-        ))}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAddService}>
+                Criar Serviço
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Services Table */}
-      <Card className="shadow-bridge-sm">
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar serviços..." className="pl-8" />
+        </div>
+        <Select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="ativo">Ativo</SelectItem>
+            <SelectItem value="pausado">Pausado</SelectItem>
+            <SelectItem value="concluido">Concluído</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos Clientes</SelectItem>
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.id}>
+                {client.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricsCard
+          title="Total de Serviços"
+          value={loading ? "..." : services.length.toString()}
+          icon={FileText}
+        />
+        <MetricsCard
+          title="Receita Total"
+          value={loading ? "..." : `R$ ${services.reduce((sum, service) => sum + (service.value || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={DollarSign}
+        />
+        <MetricsCard
+          title="Serviços Ativos"
+          value={loading ? "..." : services.filter(service => service.status === 'ativo').length.toString()}
+          icon={Clock}
+        />
+        <MetricsCard
+          title="Clientes Únicos"
+          value={loading ? "..." : new Set(services.map(service => service.client_id)).size.toString()}
+          icon={Users}
+        />
+      </div>
+
+      <Card>
         <CardHeader>
-          <CardTitle>Serviços</CardTitle>
-          <CardDescription>
-            Lista de todos os serviços ({services.length} serviço{services.length !== 1 ? 's' : ''})
-          </CardDescription>
+          <CardTitle>Lista de Serviços</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Serviço
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Cliente
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Valor
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Próxima Tarefa
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">
-                    Ações
-                  </th>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-medium">Serviço</th>
+                  <th className="text-left py-3 px-4 font-medium">Cliente</th>
+                  <th className="text-left py-3 px-4 font-medium">Valor</th>
+                  <th className="text-left py-3 px-4 font-medium">Próxima Tarefa</th>
+                  <th className="text-left py-3 px-4 font-medium">Status</th>
+                  <th className="text-left py-3 px-4 font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {services.map((service) => (
-                  <tr key={service.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="text-sm font-medium text-card-foreground">{service.service}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm">{service.client}</td>
-                    <td className="py-3 px-4 text-sm font-medium text-accent">{service.value}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{service.nextTask}</td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(service.status)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Concluir
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-muted-foreground">
+                      Carregando serviços...
                     </td>
                   </tr>
-                ))}
+                ) : services.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-muted-foreground">
+                      Nenhum serviço encontrado. Crie seu primeiro serviço!
+                    </td>
+                  </tr>
+                ) : (
+                  services.map((service) => (
+                    <tr key={service.id} className="border-b">
+                      <td className="px-6 py-4">
+                        <div className="font-medium">{service.name}</div>
+                        {service.description && (
+                          <div className="text-sm text-muted-foreground">{service.description}</div>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Processo: {service.process?.number}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {service.client?.name}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {service.value ? `R$ ${service.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">
+                        {service.next_task || '-'}
+                        {service.next_task_date && (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(service.next_task_date).toLocaleDateString('pt-BR')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(service.status)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Completar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={() => handleDeleteService(service.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -190,4 +492,6 @@ export default function Services() {
       </Card>
     </div>
   );
-}
+};
+
+export default Services;

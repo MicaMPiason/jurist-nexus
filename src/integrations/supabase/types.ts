@@ -65,6 +65,53 @@ export type Database = {
         }
         Relationships: []
       }
+      processes: {
+        Row: {
+          client_id: string
+          court: string
+          created_at: string
+          id: string
+          number: string
+          status: string
+          subject: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          court: string
+          created_at?: string
+          id?: string
+          number: string
+          status?: string
+          subject: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          court?: string
+          created_at?: string
+          id?: string
+          number?: string
+          status?: string
+          subject?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -91,6 +138,66 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      services: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          next_task: string | null
+          next_task_date: string | null
+          process_id: string
+          status: string
+          updated_at: string
+          user_id: string
+          value: number | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          next_task?: string | null
+          next_task_date?: string | null
+          process_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          value?: number | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          next_task?: string | null
+          next_task_date?: string | null
+          process_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

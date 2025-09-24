@@ -1,247 +1,299 @@
-import { Plus, Search, Scale, Clock, Calendar, MoreHorizontal, CheckCircle, Edit, Trash2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { MetricsCard } from "@/components/MetricsCard";
-import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MoreHorizontal, Plus, Search, Filter, Calendar, FileText, Eye, Edit, Trash2 } from 'lucide-react';
+import { MetricsCard } from '@/components/MetricsCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Tables } from '@/integrations/supabase/types';
 
-export default function Processes() {
+type Client = Tables<'clients'>;
+type Process = Tables<'processes'> & { client?: Client };
+
+const Processes = () => {
   const { toast } = useToast();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingProcess, setEditingProcess] = useState<any>(null);
+  const [editingProcess, setEditingProcess] = useState<Process | null>(null);
+  const [processes, setProcesses] = useState<Process[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newProcess, setNewProcess] = useState({
-    number: "",
-    title: "",
-    client: "",
-    court: "",
-    type: "Cível",
-    nextDate: "Nenhuma tarefa pendente",
-    status: "Ativo",
+    number: '',
+    client_id: '',
+    type: '',
+    court: '',
+    subject: '',
+    status: 'em_andamento' as const
   });
 
-  const [processesInProgress, setProcessesInProgress] = useState([
-    {
-      id: "123",
-      number: "123232132",
-      title: "Processo contra o banco",
-      client: "cliente teste",
-      court: "Tribunal",
-      type: "Cível",
-      nextDate: "Nenhuma tarefa pendente",
-      status: "Ativo",
-    },
-  ]);
+  useEffect(() => {
+    fetchClients();
+    fetchProcesses();
+  }, []);
 
-  const [processesWaitingHearing, setProcessesWaitingHearing] = useState([
-    {
-      id: "456",
-      number: "2312131",
-      title: "Ação Judicial",
-      client: "Maria da Silva",
-      court: "Varas",
-      type: "Cível",
-      nextDate: "23/08/2025 - Tarefa",
-      status: "Ativo",
-    },
-  ]);
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('name');
 
-  const handleAddProcess = () => {
-    const newId = Date.now().toString();
-    const processToAdd = {
-      id: newId,
-      ...newProcess
-    };
-
-    // Add to processes in progress by default
-    setProcessesInProgress(prev => [...prev, processToAdd]);
-
-    // Reset form
-    setNewProcess({
-      number: "",
-      title: "",
-      client: "",
-      court: "",
-      type: "Cível",
-      nextDate: "Nenhuma tarefa pendente",
-      status: "Ativo",
-    });
-
-    setIsAddDialogOpen(false);
-
-    toast({
-      title: "Processo adicionado",
-      description: "O novo processo foi adicionado com sucesso.",
-    });
-  };
-
-  const handleConcludeProcess = (processId: string) => {
-    // Update process status to concluded
-    setProcessesInProgress(prev => 
-      prev.map(process => 
-        process.id === processId 
-          ? { ...process, status: "Concluído" }
-          : process
-      )
-    );
-    setProcessesWaitingHearing(prev => 
-      prev.map(process => 
-        process.id === processId 
-          ? { ...process, status: "Concluído" }
-          : process
-      )
-    );
-    toast({
-      title: "Processo concluído",
-      description: "O processo foi marcado como concluído com sucesso.",
-    });
-  };
-
-  const handleEditProcess = (processId: string) => {
-    // Find the process to edit
-    const processToEdit = [...processesInProgress, ...processesWaitingHearing]
-      .find(process => process.id === processId);
-    
-    if (processToEdit) {
-      setEditingProcess(processToEdit);
-      setIsEditDialogOpen(true);
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar clientes",
+        description: "Não foi possível carregar a lista de clientes.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSaveEditedProcess = () => {
+  const fetchProcesses = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('processes')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProcesses(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar processos",
+        description: "Não foi possível carregar os processos.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddProcess = async () => {
+    if (!newProcess.client_id || !newProcess.number || !newProcess.type || !newProcess.court || !newProcess.subject) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('processes')
+        .insert({
+          user_id: user.id,
+          client_id: newProcess.client_id,
+          number: newProcess.number,
+          type: newProcess.type,
+          court: newProcess.court,
+          subject: newProcess.subject,
+          status: newProcess.status
+        })
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      setProcesses([data, ...processes]);
+      setNewProcess({
+        number: '',
+        client_id: '',
+        type: '',
+        court: '',
+        subject: '',
+        status: 'em_andamento'
+      });
+      setIsAddDialogOpen(false);
+      
+      toast({
+        title: "Processo criado",
+        description: "O processo foi criado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao criar processo",
+        description: "Não foi possível criar o processo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConcludeProcess = async (processId: string) => {
+    try {
+      const { error } = await supabase
+        .from('processes')
+        .update({ status: 'concluido' })
+        .eq('id', processId);
+
+      if (error) throw error;
+
+      setProcesses(processes.filter(p => p.id !== processId));
+      toast({
+        title: "Processo concluído",
+        description: "O processo foi marcado como concluído.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao concluir processo",
+        description: "Não foi possível concluir o processo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditProcess = (process: Process) => {
+    setEditingProcess(process);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEditedProcess = async () => {
     if (!editingProcess) return;
 
-    // Update in processesInProgress
-    setProcessesInProgress(prev => 
-      prev.map(process => 
-        process.id === editingProcess.id ? editingProcess : process
-      )
-    );
+    try {
+      const { data, error } = await supabase
+        .from('processes')
+        .update({
+          number: editingProcess.number,
+          client_id: editingProcess.client_id,
+          type: editingProcess.type,
+          court: editingProcess.court,
+          subject: editingProcess.subject,
+          status: editingProcess.status
+        })
+        .eq('id', editingProcess.id)
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .single();
 
-    // Update in processesWaitingHearing
-    setProcessesWaitingHearing(prev => 
-      prev.map(process => 
-        process.id === editingProcess.id ? editingProcess : process
-      )
-    );
+      if (error) throw error;
 
-    setIsEditDialogOpen(false);
-    setEditingProcess(null);
-
-    toast({
-      title: "Processo atualizado",
-      description: "As alterações foram salvas com sucesso.",
-    });
-  };
-
-  const handleDeleteProcess = (processId: string) => {
-    setProcessesInProgress(prev => prev.filter(process => process.id !== processId));
-    setProcessesWaitingHearing(prev => prev.filter(process => process.id !== processId));
-    toast({
-      title: "Processo excluído",
-      description: "O processo foi excluído com sucesso.",
-      variant: "destructive",
-    });
-  };
-
-  const totalProcesses = processesInProgress.length + processesWaitingHearing.length;
-
-  const metrics = [
-    {
-      title: "Total de Processos",
-      value: totalProcesses.toString(),
-      icon: Scale,
-      variant: "primary" as const,
-    },
-    {
-      title: "Em Andamento",
-      value: processesInProgress.length.toString(),
-      icon: Clock,
-      variant: "warning" as const,
-    },
-    {
-      title: "Aguardando Audiência",
-      value: processesWaitingHearing.length.toString(),
-      icon: Calendar,
-      variant: "success" as const,
-    },
-  ];
-
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "ativo":
-        return <Badge variant="secondary" className="bg-accent/10 text-accent">Ativo</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+      setProcesses(processes.map(p => p.id === editingProcess.id ? data : p));
+      setEditingProcess(null);
+      setIsEditDialogOpen(false);
+      
+      toast({
+        title: "Processo atualizado",
+        description: "O processo foi atualizado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar processo",
+        description: "Não foi possível atualizar o processo.",
+        variant: "destructive",
+      });
     }
   };
 
-  const ProcessCard = ({ 
-    process, 
-    onConclude, 
-    onEdit, 
-    onDelete 
-  }: { 
-    process: any;
-    onConclude: (id: string) => void;
-    onEdit: (id: string) => void;
-    onDelete: (id: string) => void;
-  }) => (
-    <Card className="shadow-bridge-sm hover:shadow-bridge-md transition-all duration-200">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-semibold text-card-foreground">{process.title}</h3>
-              {getStatusBadge(process.status)}
-            </div>
-            <p className="text-sm text-muted-foreground mb-1">Nº {process.number}</p>
-            <p className="text-sm text-muted-foreground">Cliente: {process.client}</p>
+  const handleDeleteProcess = async (processId: string) => {
+    try {
+      const { error } = await supabase
+        .from('processes')
+        .delete()
+        .eq('id', processId);
+
+      if (error) throw error;
+
+      setProcesses(processes.filter(p => p.id !== processId));
+      toast({
+        title: "Processo excluído",
+        description: "O processo foi excluído com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao excluir processo",
+        description: "Não foi possível excluir o processo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const processesInProgress = processes.filter(p => p.status === 'em_andamento');
+  const processesWaitingHearing = processes.filter(p => p.status === 'aguardando_audiencia');
+  const totalProcesses = processes.length;
+
+  const getStatusBadge = (status: Process['status']) => {
+    switch (status) {
+      case 'em_andamento':
+        return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">Em Andamento</Badge>;
+      case 'aguardando_audiencia':
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Aguardando Audiência</Badge>;
+      case 'concluido':
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Concluído</Badge>;
+      default:
+        return <Badge>Desconhecido</Badge>;
+    }
+  };
+
+  const ProcessCard = ({ process }: { process: Process }) => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {process.number}
+        </CardTitle>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Abrir menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleConcludeProcess(process.id)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Concluir
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleEditProcess(process)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDeleteProcess(process.id)} className="text-red-600">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <div className="text-sm text-muted-foreground">
+            Cliente: <span className="font-medium">{process.client?.name}</span>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onConclude(process.id)}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Concluir
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(process.id)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-destructive" 
-                onClick={() => onDelete(process.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Tribunal:</span>
-            <span>{process.court}</span>
+          <div className="text-sm text-muted-foreground">
+            Tipo: <span className="font-medium">{process.type}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Tipo:</span>
-            <span>{process.type}</span>
+          <div className="text-sm text-muted-foreground">
+            Tribunal: <span className="font-medium">{process.court}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Próxima:</span>
-            <span className="font-medium">{process.nextDate}</span>
+          <div className="text-sm text-muted-foreground">
+            Assunto: <span className="font-medium">{process.subject}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            {getStatusBadge(process.status)}
+            <span className="text-xs text-muted-foreground">
+              {new Date(process.created_at).toLocaleDateString('pt-BR')}
+            </span>
           </div>
         </div>
       </CardContent>
@@ -250,86 +302,55 @@ export default function Processes() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Processos</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Processos</h1>
           <p className="text-muted-foreground">
-            Gerenciamento completo de processos jurídicos
+            Gerencie todos os seus processos jurídicos
           </p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200">
-              <Plus className="h-4 w-4 mr-2" />
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
               Novo Processo
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Adicionar Novo Processo</DialogTitle>
-              <DialogDescription>
-                Preencha os dados do novo processo jurídico.
-              </DialogDescription>
+              <DialogTitle>Novo Processo</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="number" className="text-right">
-                  Número
-                </Label>
+              <div className="grid gap-2">
+                <Label htmlFor="number">Número do Processo</Label>
                 <Input
                   id="number"
+                  placeholder="0001234-56.2024.8.26.0100"
                   value={newProcess.number}
-                  onChange={(e) => setNewProcess(prev => ({ ...prev, number: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Ex: 123456789"
+                  onChange={(e) => setNewProcess({ ...newProcess, number: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">
-                  Título
-                </Label>
-                <Input
-                  id="title"
-                  value={newProcess.title}
-                  onChange={(e) => setNewProcess(prev => ({ ...prev, title: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Ex: Ação de Indenização"
-                />
+              
+              <div className="grid gap-2">
+                <Label htmlFor="client">Cliente</Label>
+                <Select value={newProcess.client_id} onValueChange={(value) => setNewProcess({ ...newProcess, client_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="client" className="text-right">
-                  Cliente
-                </Label>
-                <Input
-                  id="client"
-                  value={newProcess.client}
-                  onChange={(e) => setNewProcess(prev => ({ ...prev, client: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Ex: João da Silva"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="court" className="text-right">
-                  Tribunal
-                </Label>
-                <Input
-                  id="court"
-                  value={newProcess.court}
-                  onChange={(e) => setNewProcess(prev => ({ ...prev, court: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Ex: Tribunal de Justiça"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">
-                  Tipo
-                </Label>
-                <Select 
-                  value={newProcess.type} 
-                  onValueChange={(value) => setNewProcess(prev => ({ ...prev, type: value }))}
-                >
-                  <SelectTrigger className="col-span-3">
+
+              <div className="grid gap-2">
+                <Label htmlFor="type">Tipo</Label>
+                <Select value={newProcess.type} onValueChange={(value) => setNewProcess({ ...newProcess, type: value })}>
+                  <SelectTrigger>
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -337,252 +358,244 @@ export default function Processes() {
                     <SelectItem value="Criminal">Criminal</SelectItem>
                     <SelectItem value="Trabalhista">Trabalhista</SelectItem>
                     <SelectItem value="Tributário">Tributário</SelectItem>
+                    <SelectItem value="Família">Família</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="nextDate" className="text-right">
-                  Próxima Data
-                </Label>
+
+              <div className="grid gap-2">
+                <Label htmlFor="court">Tribunal</Label>
                 <Input
-                  id="nextDate"
-                  value={newProcess.nextDate}
-                  onChange={(e) => setNewProcess(prev => ({ ...prev, nextDate: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Ex: 25/12/2024 - Audiência"
+                  id="court"
+                  placeholder="Tribunal de Justiça"
+                  value={newProcess.court}
+                  onChange={(e) => setNewProcess({ ...newProcess, court: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="subject">Assunto</Label>
+                <Input
+                  id="subject"
+                  placeholder="Ação de Cobrança"
+                  value={newProcess.subject}
+                  onChange={(e) => setNewProcess({ ...newProcess, subject: e.target.value })}
                 />
               </div>
             </div>
-            <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsAddDialogOpen(false)}
-              >
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button 
-                type="submit" 
-                onClick={handleAddProcess}
-                disabled={!newProcess.title || !newProcess.client || !newProcess.number}
-              >
-                Adicionar Processo
+              <Button onClick={handleAddProcess}>
+                Criar Processo
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
+      </div>
 
-        {/* Edit Process Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Editar Processo</DialogTitle>
-              <DialogDescription>
-                Modifique os dados do processo jurídico.
-              </DialogDescription>
-            </DialogHeader>
-            {editingProcess && (
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-number" className="text-right">
-                    Número
-                  </Label>
-                  <Input
-                    id="edit-number"
-                    value={editingProcess.number}
-                    onChange={(e) => setEditingProcess(prev => ({ ...prev, number: e.target.value }))}
-                    className="col-span-3"
-                    placeholder="Ex: 123456789"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-title" className="text-right">
-                    Título
-                  </Label>
-                  <Input
-                    id="edit-title"
-                    value={editingProcess.title}
-                    onChange={(e) => setEditingProcess(prev => ({ ...prev, title: e.target.value }))}
-                    className="col-span-3"
-                    placeholder="Ex: Ação de Indenização"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-client" className="text-right">
-                    Cliente
-                  </Label>
-                  <Input
-                    id="edit-client"
-                    value={editingProcess.client}
-                    onChange={(e) => setEditingProcess(prev => ({ ...prev, client: e.target.value }))}
-                    className="col-span-3"
-                    placeholder="Ex: João da Silva"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-court" className="text-right">
-                    Tribunal
-                  </Label>
-                  <Input
-                    id="edit-court"
-                    value={editingProcess.court}
-                    onChange={(e) => setEditingProcess(prev => ({ ...prev, court: e.target.value }))}
-                    className="col-span-3"
-                    placeholder="Ex: Tribunal de Justiça"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-type" className="text-right">
-                    Tipo
-                  </Label>
-                  <Select 
-                    value={editingProcess.type} 
-                    onValueChange={(value) => setEditingProcess(prev => ({ ...prev, type: value }))}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Selecione o tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Cível">Cível</SelectItem>
-                      <SelectItem value="Criminal">Criminal</SelectItem>
-                      <SelectItem value="Trabalhista">Trabalhista</SelectItem>
-                      <SelectItem value="Tributário">Tributário</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-nextDate" className="text-right">
-                    Próxima Data
-                  </Label>
-                  <Input
-                    id="edit-nextDate"
-                    value={editingProcess.nextDate}
-                    onChange={(e) => setEditingProcess(prev => ({ ...prev, nextDate: e.target.value }))}
-                    className="col-span-3"
-                    placeholder="Ex: 25/12/2024 - Audiência"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-status" className="text-right">
-                    Status
-                  </Label>
-                  <Select 
-                    value={editingProcess.status} 
-                    onValueChange={(value) => setEditingProcess(prev => ({ ...prev, status: value }))}
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Ativo">Ativo</SelectItem>
-                      <SelectItem value="Concluído">Concluído</SelectItem>
-                      <SelectItem value="Suspenso">Suspenso</SelectItem>
-                      <SelectItem value="Arquivado">Arquivado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar processos..." className="pl-8" />
+        </div>
+        <Select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="em_andamento">Em Andamento</SelectItem>
+            <SelectItem value="aguardando_audiencia">Aguardando Audiência</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos Clientes</SelectItem>
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.id}>
+                {client.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <MetricsCard
+          title="Total de Processos"
+          value={loading ? "..." : totalProcesses.toString()}
+          icon={FileText}
+        />
+        <MetricsCard
+          title="Em Andamento"
+          value={loading ? "..." : processesInProgress.length.toString()}
+          icon={Calendar}
+        />
+        <MetricsCard
+          title="Aguardando Audiência"
+          value={loading ? "..." : processesWaitingHearing.length.toString()}
+          icon={Eye}
+        />
+        <MetricsCard
+          title="Novos Este Mês"
+          value={loading ? "..." : processes.filter(p => {
+            const processDate = new Date(p.created_at);
+            const now = new Date();
+            return processDate.getMonth() === now.getMonth() && 
+                   processDate.getFullYear() === now.getFullYear();
+          }).length.toString()}
+          icon={Plus}
+        />
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Carregando processos...</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Processos em Andamento</h2>
+            {processesInProgress.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum processo em andamento encontrado.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {processesInProgress.map((process) => (
+                  <ProcessCard key={process.id} process={process} />
+                ))}
               </div>
             )}
-            <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                onClick={handleSaveEditedProcess}
-                disabled={!editingProcess?.title || !editingProcess?.client || !editingProcess?.number}
-              >
-                Salvar Alterações
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Filters */}
-      <Card className="shadow-bridge-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar processos..." 
-                className="w-full pl-10"
-              />
-            </div>
-            <Select>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="em_andamento">Em Andamento</SelectItem>
-                <SelectItem value="aguardando_audiencia">Aguardando Audiência</SelectItem>
-                <SelectItem value="ativo">Ativo</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Buscar cliente..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os clientes</SelectItem>
-                <SelectItem value="maria">Maria da Silva</SelectItem>
-                <SelectItem value="teste">cliente teste</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {metrics.map((metric, index) => (
-          <MetricsCard key={index} {...metric} />
-        ))}
-      </div>
+          <Separator />
 
-      {/* Processes in Progress */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Processos em Andamento</h2>
-          <Badge variant="outline">{processesInProgress.length}</Badge>
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Processos Aguardando Audiência</h2>
+            {processesWaitingHearing.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum processo aguardando audiência encontrado.
+              </p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {processesWaitingHearing.map((process) => (
+                  <ProcessCard key={process.id} process={process} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {processesInProgress.map((process) => (
-            <ProcessCard 
-              key={process.id} 
-              process={process} 
-              onConclude={handleConcludeProcess}
-              onEdit={handleEditProcess}
-              onDelete={handleDeleteProcess}
-            />
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Processes Waiting Hearing */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="text-xl font-semibold text-foreground">Processos Aguardando Audiência</h2>
-          <Badge variant="outline">{processesWaitingHearing.length}</Badge>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {processesWaitingHearing.map((process) => (
-            <ProcessCard 
-              key={process.id} 
-              process={process} 
-              onConclude={handleConcludeProcess}
-              onEdit={handleEditProcess}
-              onDelete={handleDeleteProcess}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Edit Process Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Processo</DialogTitle>
+          </DialogHeader>
+          {editingProcess && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-number">Número do Processo</Label>
+                <Input
+                  id="edit-number"
+                  value={editingProcess.number}
+                  onChange={(e) => setEditingProcess({ ...editingProcess, number: e.target.value })}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-client">Cliente</Label>
+                <Select 
+                  value={editingProcess?.client_id || ''} 
+                  onValueChange={(value) => setEditingProcess(editingProcess ? { ...editingProcess, client_id: value } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-type">Tipo</Label>
+                <Select 
+                  value={editingProcess.type} 
+                  onValueChange={(value) => setEditingProcess({ ...editingProcess, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cível">Cível</SelectItem>
+                    <SelectItem value="Criminal">Criminal</SelectItem>
+                    <SelectItem value="Trabalhista">Trabalhista</SelectItem>
+                    <SelectItem value="Tributário">Tributário</SelectItem>
+                    <SelectItem value="Família">Família</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-court">Tribunal</Label>
+                <Input
+                  id="edit-court"
+                  value={editingProcess.court}
+                  onChange={(e) => setEditingProcess({ ...editingProcess, court: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-subject">Assunto</Label>
+                <Input
+                  id="edit-subject"
+                  value={editingProcess.subject}
+                  onChange={(e) => setEditingProcess({ ...editingProcess, subject: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select 
+                  value={editingProcess.status} 
+                  onValueChange={(value) => setEditingProcess({ ...editingProcess, status: value as Process['status'] })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                    <SelectItem value="aguardando_audiencia">Aguardando Audiência</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEditedProcess}>
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
+};
+
+export default Processes;
