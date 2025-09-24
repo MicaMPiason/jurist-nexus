@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          cep: string
+          city: string
+          cpf: string
+          created_at: string
+          email: string
+          id: string
+          marital_status: string
+          name: string
+          number: string
+          phone: string
+          profession: string
+          street: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cep: string
+          city: string
+          cpf: string
+          created_at?: string
+          email: string
+          id?: string
+          marital_status: string
+          name: string
+          number: string
+          phone: string
+          profession: string
+          street: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cep?: string
+          city?: string
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          marital_status?: string
+          name?: string
+          number?: string
+          phone?: string
+          profession?: string
+          street?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

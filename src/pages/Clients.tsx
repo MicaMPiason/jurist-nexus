@@ -10,8 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const clientSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -20,7 +22,6 @@ const clientSchema = z.object({
   maritalStatus: z.string().min(1, "Estado civil é obrigatório"),
   profession: z.string().min(1, "Profissão é obrigatória"),
   cpf: z.string().min(11, "CPF é obrigatório"),
-  electronicAddress: z.string().email("Endereço eletrônico inválido"),
   street: z.string().min(1, "Rua é obrigatória"),
   number: z.string().min(1, "Número é obrigatório"),
   city: z.string().min(1, "Cidade é obrigatória"),
@@ -31,41 +32,10 @@ type ClientFormData = z.infer<typeof clientSchema>;
 
 export default function Clients() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [clients, setClients] = useState([
-    {
-      id: "1",
-      name: "cliente teste",
-      email: "teste@teste.com",
-      phone: "Não informado",
-      processes: "1",
-      since: "19/08/2025",
-      maritalStatus: "Solteiro",
-      profession: "Desenvolvedor",
-      cpf: "123.456.789-00",
-      electronicAddress: "teste@teste.com",
-      street: "Rua das Flores",
-      number: "123",
-      city: "São Paulo",
-      cep: "01234-567",
-    },
-    {
-      id: "2",
-      name: "Maria da Silva",
-      email: "maria@exemplo.com",
-      phone: "Não informado",
-      processes: "1",
-      since: "02/08/2025",
-      maritalStatus: "Casada",
-      profession: "Advogada",
-      cpf: "987.654.321-00",
-      electronicAddress: "maria@exemplo.com",
-      street: "Av. Principal",
-      number: "456",
-      city: "Rio de Janeiro",
-      cep: "20000-000",
-    },
-  ]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const form = useForm<ClientFormData>({
     resolver: zodResolver(clientSchema),
@@ -76,7 +46,6 @@ export default function Clients() {
       maritalStatus: "",
       profession: "",
       cpf: "",
-      electronicAddress: "",
       street: "",
       number: "",
       city: "",
@@ -84,32 +53,74 @@ export default function Clients() {
     },
   });
 
-  const handleAddClient = (data: ClientFormData) => {
-    const newClient = {
-      id: (clients.length + 1).toString(),
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      processes: "0",
-      since: new Date().toLocaleDateString("pt-BR"),
-      maritalStatus: data.maritalStatus,
-      profession: data.profession,
-      cpf: data.cpf,
-      electronicAddress: data.electronicAddress,
-      street: data.street,
-      number: data.number,
-      city: data.city,
-      cep: data.cep,
-    };
+  useEffect(() => {
+    if (user) {
+      loadClients();
+    }
+  }, [user]);
 
-    setClients([...clients, newClient]);
-    setIsDialogOpen(false);
-    form.reset();
-    
-    toast({
-      title: "Cliente adicionado",
-      description: "O cliente foi adicionado com sucesso.",
-    });
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      setClients(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar clientes",
+        description: "Não foi possível carregar a lista de clientes.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddClient = async (data: ClientFormData) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .insert({
+          user_id: user.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          marital_status: data.maritalStatus,
+          profession: data.profession,
+          cpf: data.cpf,
+          street: data.street,
+          number: data.number,
+          city: data.city,
+          cep: data.cep,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      await loadClients(); // Reload clients list
+      setIsDialogOpen(false);
+      form.reset();
+      
+      toast({
+        title: "Cliente adicionado",
+        description: "O cliente foi adicionado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao adicionar cliente",
+        description: "Não foi possível adicionar o cliente. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -195,12 +206,12 @@ export default function Clients() {
                     </td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">{client.email}</td>
                     <td className="py-3 px-4 text-sm text-muted-foreground">{client.phone}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant="secondary" className="bg-accent/10 text-accent">
-                        {client.processes}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{client.since}</td>
+                     <td className="py-3 px-4">
+                       <Badge variant="secondary" className="bg-accent/10 text-accent">
+                         0
+                       </Badge>
+                     </td>
+                     <td className="py-3 px-4 text-sm text-muted-foreground">{new Date(client.created_at).toLocaleDateString("pt-BR")}</td>
                     <td className="py-3 px-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -375,19 +386,6 @@ export default function Clients() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="electronicAddress"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Endereço Eletrônico</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="endereco@exemplo.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <div className="grid grid-cols-3 gap-4">
                 <FormField
