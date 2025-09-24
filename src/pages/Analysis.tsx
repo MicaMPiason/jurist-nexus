@@ -131,11 +131,8 @@ export default function Analysis() {
         title: "Análise Concluída",
         description: "O documento foi analisado com sucesso pela IA.",
       });
-
-      console.log('Resultado da análise:', result);
       
     } catch (error) {
-      console.error('Erro ao analisar documento:', error);
       toast({
         title: "Erro na Análise",
         description: "Não foi possível analisar o documento. Tente novamente.",
