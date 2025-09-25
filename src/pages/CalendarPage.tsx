@@ -1,54 +1,133 @@
-import { Calendar, ChevronLeft, ChevronRight, Clock, Users, Scale, CheckCircle, Edit, Trash2, MoreHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, CheckCircle, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { format, startOfMonth, endOfMonth, getDaysInMonth, addMonths, subMonths, isSameDay, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface CalendarEvent {
+  id: string;
+  date: Date;
+  type: 'service' | 'process';
+  title: string;
+  client: string;
+  description?: string;
+  source: 'next_task_date';
+}
 
 export default function CalendarPage() {
-  const currentMonth = "Agosto 2025";
-  const nextMonth = "Setembro 2025";
-  
-  const months = [
-    {
-      name: currentMonth,
-      eventsCount: "7 evento(s)",
-      isCurrent: true,
-      events: [
-        { date: 20, type: "deadline" },
-        { date: 21, type: "meeting" },
-        { date: 23, type: "deadline" },
-        { date: 25, type: "meeting" },
-        { date: 26, type: "meeting" },
-      ],
-    },
-    {
-      name: nextMonth,
-      eventsCount: "1 evento(s)",
-      isCurrent: false,
-      events: [
-        { date: 15, type: "hearing" },
-      ],
-    },
-  ];
+  const { user } = useAuth();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingEvents = [
-    {
-      client: "Maria da Silva",
-      date: "24/08/2025",
-      type: "Tarefa",
-      process: "Ação Judicial 2312131",
-      task: "Reunião de alinhamento",
-    },
-  ];
+  const fetchCalendarEvents = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    
+    try {
+      // Buscar serviços com next_task_date
+      const { data: services, error: servicesError } = await supabase
+        .from('services')
+        .select(`
+          id,
+          name,
+          next_task_date,
+          next_task,
+          clients:client_id (name)
+        `)
+        .eq('user_id', user.id)
+        .not('next_task_date', 'is', null);
+
+      if (servicesError) throw servicesError;
+
+      // Buscar processos que tenham alguma data relacionada
+      const { data: processes, error: processesError } = await supabase
+        .from('processes')
+        .select(`
+          id,
+          number,
+          subject,
+          created_at,
+          clients:client_id (name)
+        `)
+        .eq('user_id', user.id);
+
+      if (processesError) throw processesError;
+
+      const calendarEvents: CalendarEvent[] = [];
+
+      // Adicionar eventos dos serviços
+      services?.forEach((service: any) => {
+        if (service.next_task_date) {
+          calendarEvents.push({
+            id: `service-${service.id}`,
+            date: parseISO(service.next_task_date),
+            type: 'service',
+            title: service.next_task || service.name,
+            client: service.clients?.name || 'Cliente não informado',
+            description: service.name,
+            source: 'next_task_date'
+          });
+        }
+      });
+
+      // Adicionar eventos dos processos (data de criação como exemplo)
+      processes?.forEach((process: any) => {
+        calendarEvents.push({
+          id: `process-${process.id}`,
+          date: parseISO(process.created_at),
+          type: 'process',
+          title: `Processo: ${process.number}`,
+          client: process.clients?.name || 'Cliente não informado',
+          description: process.subject,
+          source: 'next_task_date'
+        });
+      });
+
+      setEvents(calendarEvents);
+    } catch (error) {
+      console.error('Erro ao buscar eventos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCalendarEvents();
+  }, [user]);
+
+  const currentMonth = format(currentDate, 'MMMM yyyy', { locale: ptBR });
+  const nextMonth = format(addMonths(currentDate, 1), 'MMMM yyyy', { locale: ptBR });
+  
+  const getEventsForMonth = (date: Date) => {
+    const monthStart = startOfMonth(date);
+    const monthEnd = endOfMonth(date);
+    
+    return events.filter(event => 
+      event.date >= monthStart && event.date <= monthEnd
+    );
+  };
+
+  const getCurrentMonthEvents = () => getEventsForMonth(currentDate);
+  const getNextMonthEvents = () => getEventsForMonth(addMonths(currentDate, 1));
+
+  const upcomingEvents = events
+    .filter(event => event.date >= new Date())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, 10);
 
   const getEventTypeClasses = (type: string) => {
     switch (type) {
-      case "deadline":
-        return "bg-destructive text-destructive-foreground";
-      case "meeting":
+      case "service":
         return "bg-primary text-primary-foreground";
-      case "hearing":
-        return "bg-accent text-accent-foreground";
+      case "process":
+        return "bg-destructive text-destructive-foreground";
       default:
         return "bg-secondary text-secondary-foreground";
     }
@@ -56,58 +135,92 @@ export default function CalendarPage() {
 
   const getEventTypeBadge = (type: string) => {
     switch (type.toLowerCase()) {
-      case "tarefa":
-        return <Badge variant="secondary" className="bg-primary/10 text-primary">Tarefa</Badge>;
-      case "audiência":
-        return <Badge variant="secondary" className="bg-accent/10 text-accent">Audiência</Badge>;
-      case "reunião":
-        return <Badge variant="secondary" className="bg-warning/10 text-warning">Reunião</Badge>;
+      case "service":
+        return <Badge variant="secondary" className="bg-primary/10 text-primary">Serviço</Badge>;
+      case "process":
+        return <Badge variant="secondary" className="bg-destructive/10 text-destructive">Processo</Badge>;
       default:
         return <Badge variant="secondary">{type}</Badge>;
     }
   };
 
-  const CalendarMonth = ({ month }: { month: any }) => (
-    <Card className={`shadow-bridge-sm ${month.isCurrent ? 'border-primary/30' : ''}`}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{month.name}</CardTitle>
-          <CardDescription className="text-xs">{month.eventsCount}</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-1 mb-4">
-          {/* Days of week header */}
-          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => (
-            <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">
-              {day}
-            </div>
-          ))}
-          
-          {/* Calendar grid */}
-          {Array.from({ length: 35 }, (_, i) => {
-            const date = i - 5; // Adjust for month start
-            const hasEvent = month.events.find((e: any) => e.date === date);
-            
-            if (date < 1 || date > 31) {
-              return <div key={i} className="h-8"></div>;
-            }
-            
-            return (
-              <div key={i} className="h-8 flex items-center justify-center relative">
-                <span className={`text-sm ${month.isCurrent && date === 19 ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
-                  {date}
-                </span>
-                {hasEvent && (
-                  <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full ${getEventTypeClasses(hasEvent.type)}`}></div>
-                )}
+  const months = [
+    {
+      name: currentMonth,
+      eventsCount: `${getCurrentMonthEvents().length} evento(s)`,
+      isCurrent: true,
+      events: getCurrentMonthEvents(),
+      date: currentDate,
+    },
+    {
+      name: nextMonth,
+      eventsCount: `${getNextMonthEvents().length} evento(s)`,
+      isCurrent: false,
+      events: getNextMonthEvents(),
+      date: addMonths(currentDate, 1),
+    },
+  ];
+
+  const CalendarMonth = ({ month }: { month: any }) => {
+    const daysInMonth = getDaysInMonth(month.date);
+    const monthStart = startOfMonth(month.date);
+    const startDay = monthStart.getDay(); // 0 = Sunday
+
+    return (
+      <Card className={`shadow-bridge-sm ${month.isCurrent ? 'border-primary/30' : ''}`}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg capitalize">{month.name}</CardTitle>
+            <CardDescription className="text-xs">{month.eventsCount}</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-1 mb-4">
+            {/* Days of week header */}
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'].map(day => (
+              <div key={day} className="text-center text-xs text-muted-foreground font-medium py-2">
+                {day}
               </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
+            ))}
+            
+            {/* Empty cells for days before month starts */}
+            {Array.from({ length: startDay }, (_, i) => (
+              <div key={`empty-${i}`} className="h-8"></div>
+            ))}
+            
+            {/* Calendar days */}
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const date = i + 1;
+              const fullDate = new Date(month.date.getFullYear(), month.date.getMonth(), date);
+              const dayEvents = month.events.filter((event: CalendarEvent) => 
+                isSameDay(event.date, fullDate)
+              );
+              const isToday = isSameDay(fullDate, new Date());
+              
+              return (
+                <div key={date} className="h-8 flex items-center justify-center relative">
+                  <span className={`text-sm ${isToday ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}`}>
+                    {date}
+                  </span>
+                  {dayEvents.length > 0 && (
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex gap-0.5">
+                      {dayEvents.slice(0, 3).map((event, eventIndex) => (
+                        <div 
+                          key={eventIndex}
+                          className={`w-1 h-1 rounded-full ${getEventTypeClasses(event.type)}`}
+                          title={event.title}
+                        ></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -120,10 +233,18 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -176,12 +297,14 @@ export default function CalendarPage() {
                 {upcomingEvents.map((event, index) => (
                   <tr key={index} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="py-3 px-4 text-sm">{event.client}</td>
-                    <td className="py-3 px-4 text-sm font-medium">{event.date}</td>
+                    <td className="py-3 px-4 text-sm font-medium">
+                      {format(event.date, 'dd/MM/yyyy', { locale: ptBR })}
+                    </td>
                     <td className="py-3 px-4">
                       {getEventTypeBadge(event.type)}
                     </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{event.process}</td>
-                    <td className="py-3 px-4 text-sm">{event.task}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground">{event.description || 'N/A'}</td>
+                    <td className="py-3 px-4 text-sm">{event.title}</td>
                     <td className="py-3 px-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
