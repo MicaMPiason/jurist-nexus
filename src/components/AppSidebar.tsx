@@ -223,7 +223,7 @@ export function AppSidebar() {
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
-                  <div className="flex flex-col items-center text-center w-full min-w-0 px-2">
+                  <div className="flex flex-col items-start text-left w-full min-w-0 px-2">
                     <span className="text-sm font-medium w-full max-w-full truncate">
                       {profile.name 
                         ? profile.name.split(' ').length > 1 
