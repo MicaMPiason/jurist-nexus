@@ -212,7 +212,7 @@ export function AppSidebar() {
             <PopoverTrigger asChild>
               <Button 
                 variant="ghost" 
-                className={`w-full mx-2 ${collapsed ? "p-2 justify-center" : "p-3 justify-center gap-3"} h-auto`}
+                className={`w-full ${collapsed ? "p-2 justify-center" : "p-3 justify-start gap-3"} h-auto`}
               >
                 <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarFallback className="text-xs">
@@ -223,11 +223,11 @@ export function AppSidebar() {
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
-                  <div className="flex flex-col items-center text-center min-w-0 px-2">
-                    <span className="text-sm font-medium break-words max-w-full">
+                  <div className="flex flex-col items-center text-center w-full">
+                    <span className="text-sm font-medium text-wrap break-words w-full">
                       {profile.name || "Usuário"}
                     </span>
-                    <span className="text-xs text-muted-foreground break-words max-w-full">
+                    <span className="text-xs text-muted-foreground text-wrap break-words w-full">
                       {user?.email}
                     </span>
                   </div>
