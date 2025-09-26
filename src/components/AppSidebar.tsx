@@ -46,10 +46,10 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"}>
+    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
       <SidebarContent className="bg-sidebar border-r border-sidebar-border">
-        <div className={collapsed ? "p-2" : "p-4"}>
-          <div className="flex items-center gap-2 mb-6">
+        <div className={collapsed ? "p-2 flex justify-center" : "p-4"}>
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2'} mb-6`}>
             <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
               <Scale className="h-4 w-4 text-white" />
             </div>
