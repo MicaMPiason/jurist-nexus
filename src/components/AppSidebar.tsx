@@ -219,15 +219,15 @@ export function AppSidebar() {
                 variant="ghost" 
                 className={`w-full ${collapsed ? "p-2 justify-center" : "p-3 justify-start gap-3"} h-auto`}
               >
-                <AvatarUpload
-                  currentAvatarUrl={profile.avatar_url}
-                  userId={user.id}
-                  userInitials={profile.name 
-                    ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                    : user?.email?.[0].toUpperCase() || ""
-                  }
-                  onAvatarUpdate={handleAvatarUpdate}
-                />
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile.avatar_url} />
+                  <AvatarFallback>
+                    {profile.name 
+                      ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                      : user?.email?.[0].toUpperCase() || ""
+                    }
+                  </AvatarFallback>
+                </Avatar>
                 {!collapsed && (
                   <div className="flex flex-col items-start text-left w-full min-w-0 px-2">
                     <span className="text-sm font-medium w-full max-w-full truncate">
@@ -253,15 +253,15 @@ export function AppSidebar() {
               <Tabs defaultValue="profile" className="w-full">
                 <div className="p-4 pb-0">
                   <div className="flex items-center gap-3 mb-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={profile.avatar_url} />
-                      <AvatarFallback>
-                        {profile.name 
-                          ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                          : user?.email?.[0].toUpperCase()
-                        }
-                      </AvatarFallback>
-                    </Avatar>
+                    <AvatarUpload
+                      currentAvatarUrl={profile.avatar_url}
+                      userId={user.id}
+                      userInitials={profile.name 
+                        ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                        : user?.email?.[0].toUpperCase() || ""
+                      }
+                      onAvatarUpdate={handleAvatarUpdate}
+                    />
                     <div>
                       <h4 className="font-semibold text-sm">
                         {profile.name || "Usuário"}
