@@ -77,7 +77,7 @@ export function AppSidebar() {
                       to={item.url}
                       end={item.url === "/"}
                       className={({ isActive: navIsActive }) =>
-                        `flex items-center ${collapsed ? "justify-center px-2" : "gap-3 px-4"} py-3 rounded-lg mx-2 transition-all duration-200 ${
+                        `flex items-center ${collapsed ? "justify-center px-0 mx-1" : "gap-3 px-4 mx-2"} py-3 rounded-lg transition-all duration-200 ${
                           isActive(item.url)
                             ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-bridge-md"
                             : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
