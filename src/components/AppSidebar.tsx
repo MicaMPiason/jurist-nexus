@@ -17,7 +17,7 @@ import {
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import {
   Popover,
   PopoverContent,
@@ -61,7 +62,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
-  const [profile, setProfile] = useState({ name: "", email: "" });
+  const [profile, setProfile] = useState({ name: "", email: "", avatar_url: "" });
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [settings, setSettings] = useState({
@@ -93,7 +94,7 @@ export function AppSidebar() {
     
     const { data, error } = await supabase
       .from('profiles')
-      .select('name, email')
+      .select('name, email, avatar_url')
       .eq('user_id', user.id)
       .single();
 
@@ -140,6 +141,10 @@ export function AppSidebar() {
       title: "Configuração salva!",
       description: "Suas preferências foram atualizadas.",
     });
+  };
+
+  const handleAvatarUpdate = (url: string) => {
+    setProfile(prev => ({ ...prev, avatar_url: url }));
   };
 
   const handleSignOut = async () => {
@@ -214,14 +219,15 @@ export function AppSidebar() {
                 variant="ghost" 
                 className={`w-full ${collapsed ? "p-2 justify-center" : "p-3 justify-start gap-3"} h-auto`}
               >
-                <Avatar className="h-8 w-8 flex-shrink-0">
-                  <AvatarFallback className="text-xs">
-                    {profile.name 
-                      ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                      : user?.email?.[0].toUpperCase()
-                    }
-                  </AvatarFallback>
-                </Avatar>
+                <AvatarUpload
+                  currentAvatarUrl={profile.avatar_url}
+                  userId={user.id}
+                  userInitials={profile.name 
+                    ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
+                    : user?.email?.[0].toUpperCase() || ""
+                  }
+                  onAvatarUpdate={handleAvatarUpdate}
+                />
                 {!collapsed && (
                   <div className="flex flex-col items-start text-left w-full min-w-0 px-2">
                     <span className="text-sm font-medium w-full max-w-full truncate">
@@ -248,6 +254,7 @@ export function AppSidebar() {
                 <div className="p-4 pb-0">
                   <div className="flex items-center gap-3 mb-4">
                     <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile.avatar_url} />
                       <AvatarFallback>
                         {profile.name 
                           ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase()
