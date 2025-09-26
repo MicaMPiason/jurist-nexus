@@ -212,7 +212,7 @@ export function AppSidebar() {
             <PopoverTrigger asChild>
               <Button 
                 variant="ghost" 
-                className={`w-full ${collapsed ? "p-2 justify-center" : "p-3 justify-start gap-3"} h-auto`}
+                className={`w-full mx-2 ${collapsed ? "p-2 justify-center" : "p-3 justify-center gap-3"} h-auto`}
               >
                 <Avatar className="h-8 w-8 flex-shrink-0">
                   <AvatarFallback className="text-xs">
