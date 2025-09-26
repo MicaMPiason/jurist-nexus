@@ -223,11 +223,16 @@ export function AppSidebar() {
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
-                  <div className="flex flex-col items-center text-center w-full">
-                    <span className="text-sm font-medium text-wrap break-words w-full">
-                      {profile.name || "Usuário"}
+                  <div className="flex flex-col items-center text-center w-full min-w-0 px-2">
+                    <span className="text-sm font-medium w-full max-w-full truncate">
+                      {profile.name 
+                        ? profile.name.split(' ').length > 1 
+                          ? `${profile.name.split(' ')[0]} ${profile.name.split(' ').slice(-1)[0]}`
+                          : profile.name
+                        : "Usuário"
+                      }
                     </span>
-                    <span className="text-xs text-muted-foreground text-wrap break-words w-full">
+                    <span className="text-[10px] text-muted-foreground w-full max-w-full truncate">
                       {user?.email}
                     </span>
                   </div>
