@@ -8,61 +8,171 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { MetricsCard } from "@/components/MetricsCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Invoice = {
   id: string;
-  client: string;
-  service: string;
-  amount: string;
-  dueDate: string;
+  client_id: string;
+  client_name: string;
+  service_id?: string;
+  service_name?: string;
+  amount: number;
+  due_date: string;
   status: string;
-  issueDate: string;
+  issue_date: string;
+  description?: string;
+};
+
+type Client = {
+  id: string;
+  name: string;
 };
 
 export default function Billing() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [newInvoice, setNewInvoice] = useState<Partial<Invoice>>({
+    status: "pendente",
+  });
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Load data
+  useEffect(() => {
+    if (user) {
+      loadInvoices();
+      loadClients();
+    }
+  }, [user]);
+
+  const loadInvoices = async () => {
+    try {
+      setLoading(true);
+      const { data: invoicesData, error } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          clients:client_id (name),
+          services:service_id (name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const formattedInvoices = invoicesData?.map((inv: any) => ({
+        id: inv.id,
+        client_id: inv.client_id,
+        client_name: inv.clients?.name || "Cliente não encontrado",
+        service_id: inv.service_id,
+        service_name: inv.services?.name || "N/A",
+        amount: inv.amount,
+        due_date: inv.due_date,
+        status: inv.status,
+        issue_date: inv.issue_date,
+        description: inv.description,
+      })) || [];
+
+      setInvoices(formattedInvoices);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar cobranças",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar clientes",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Calculate metrics
+  const totalRevenue = invoices
+    .filter((inv) => inv.status === "pago")
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  const pendingAmount = invoices
+    .filter((inv) => inv.status === "pendente")
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  const overdueAmount = invoices
+    .filter((inv) => inv.status === "vencida")
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthlyRevenue = invoices
+    .filter((inv) => {
+      const date = new Date(inv.issue_date);
+      return (
+        inv.status === "pago" &&
+        date.getMonth() === currentMonth &&
+        date.getFullYear() === currentYear
+      );
+    })
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
   const metrics = [
     {
       title: "Receita Total",
-      value: "R$ 1,23",
+      value: `R$ ${totalRevenue.toFixed(2)}`,
       icon: DollarSign,
       variant: "success" as const,
     },
     {
       title: "Contas a Receber",
-      value: "R$ 1,23",
+      value: `R$ ${pendingAmount.toFixed(2)}`,
       icon: CreditCard,
       variant: "warning" as const,
     },
     {
       title: "Vencidas",
-      value: "R$ 0,00",
+      value: `R$ ${overdueAmount.toFixed(2)}`,
       icon: AlertTriangle,
       variant: "destructive" as const,
     },
     {
       title: "Este Mês",
-      value: "R$ 1,23",
+      value: `R$ ${monthlyRevenue.toFixed(2)}`,
       icon: TrendingUp,
       variant: "primary" as const,
     },
   ];
 
-  const invoices = [
-    {
-      id: "1",
-      client: "Maria da Silva",
-      service: "Elaboração de contrato",
-      amount: "R$ 1,23",
-      dueDate: "20/10/2025",
-      status: "Pendente",
-      issueDate: "19/08/2025",
-    },
-  ];
+  // Filter invoices
+  const filteredInvoices = invoices.filter((invoice) => {
+    const matchesSearch = invoice.client_name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) || 
+      invoice.service_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || invoice.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -82,16 +192,128 @@ export default function Billing() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveInvoice = () => {
+  const handleSaveInvoice = async () => {
     if (!editingInvoice) return;
-    
-    toast({
-      title: "Cobrança atualizada",
-      description: "A cobrança foi atualizada com sucesso.",
-    });
-    
-    setIsEditDialogOpen(false);
-    setEditingInvoice(null);
+
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .update({
+          client_id: editingInvoice.client_id,
+          service_id: editingInvoice.service_id,
+          amount: editingInvoice.amount,
+          issue_date: editingInvoice.issue_date,
+          due_date: editingInvoice.due_date,
+          status: editingInvoice.status,
+          description: editingInvoice.description,
+        })
+        .eq("id", editingInvoice.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Cobrança atualizada",
+        description: "A cobrança foi atualizada com sucesso.",
+      });
+
+      setIsEditDialogOpen(false);
+      setEditingInvoice(null);
+      loadInvoices();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar cobrança",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!user || !newInvoice.client_id || !newInvoice.amount || !newInvoice.issue_date || !newInvoice.due_date) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("invoices").insert({
+        user_id: user.id,
+        client_id: newInvoice.client_id,
+        service_id: newInvoice.service_id,
+        amount: newInvoice.amount,
+        issue_date: newInvoice.issue_date,
+        due_date: newInvoice.due_date,
+        status: newInvoice.status || "pendente",
+        description: newInvoice.description,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Cobrança criada",
+        description: "A cobrança foi criada com sucesso.",
+      });
+
+      setIsCreateDialogOpen(false);
+      setNewInvoice({ status: "pendente" });
+      loadInvoices();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar cobrança",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteInvoice = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta cobrança?")) return;
+
+    try {
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Cobrança excluída",
+        description: "A cobrança foi excluída com sucesso.",
+      });
+
+      loadInvoices();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir cobrança",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkAsPaid = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("invoices")
+        .update({ status: "pago" })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Cobrança marcada como paga",
+        description: "A cobrança foi atualizada com sucesso.",
+      });
+
+      loadInvoices();
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar cobrança",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -104,7 +326,10 @@ export default function Billing() {
             Gestão financeira e cobrança de serviços
           </p>
         </div>
-        <Button className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200">
+        <Button
+          className="bg-gradient-primary hover:shadow-bridge-glow transition-all duration-200"
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Nova Cobrança
         </Button>
@@ -126,9 +351,11 @@ export default function Billing() {
               <Input 
                 placeholder="Buscar cobranças..." 
                 className="w-full pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="Todos os status" />
               </SelectTrigger>
@@ -162,7 +389,7 @@ export default function Billing() {
             Cobranças e Faturas
           </CardTitle>
           <CardDescription>
-            Total de {invoices.length} cobrança{invoices.length !== 1 ? 's' : ''}
+            Total de {filteredInvoices.length} cobrança{filteredInvoices.length !== 1 ? 's' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -194,50 +421,73 @@ export default function Billing() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center">
-                          <CreditCard className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-card-foreground">{invoice.client}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{invoice.service}</td>
-                    <td className="py-3 px-4 text-sm font-semibold text-accent">{invoice.amount}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{invoice.issueDate}</td>
-                    <td className="py-3 px-4 text-sm font-medium">{invoice.dueDate}</td>
-                    <td className="py-3 px-4">
-                      {getStatusBadge(invoice.status)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem>
-                            <CreditCard className="h-4 w-4 mr-2" />
-                            Marcar como Pago
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditInvoice(invoice)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Carregando...
                     </td>
                   </tr>
-                ))}
+                ) : filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                      Nenhuma cobrança encontrada
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.map((invoice) => (
+                    <tr key={invoice.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+                            <CreditCard className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-card-foreground">{invoice.client_name}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">{invoice.service_name}</td>
+                      <td className="py-3 px-4 text-sm font-semibold text-accent">
+                        R$ {invoice.amount.toFixed(2)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {new Date(invoice.issue_date).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="py-3 px-4 text-sm font-medium">
+                        {new Date(invoice.due_date).toLocaleDateString("pt-BR")}
+                      </td>
+                      <td className="py-3 px-4">
+                        {getStatusBadge(invoice.status)}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => handleMarkAsPaid(invoice.id)}>
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Marcar como Pago
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditInvoice(invoice)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -298,55 +548,62 @@ export default function Billing() {
           {editingInvoice && (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-client">Cliente</Label>
+                <Label htmlFor="edit-client">Cliente *</Label>
+                <Select
+                  value={editingInvoice.client_id}
+                  onValueChange={(value) => setEditingInvoice({ ...editingInvoice, client_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Descrição</Label>
                 <Input
-                  id="edit-client"
-                  value={editingInvoice.client}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, client: e.target.value })}
+                  id="edit-description"
+                  value={editingInvoice.description || ""}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, description: e.target.value })}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="edit-service">Serviço</Label>
-                <Input
-                  id="edit-service"
-                  value={editingInvoice.service}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, service: e.target.value })}
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="edit-amount">Valor</Label>
+                <Label htmlFor="edit-amount">Valor *</Label>
                 <Input
                   id="edit-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
                   value={editingInvoice.amount}
-                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: parseFloat(e.target.value) })}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="edit-issue-date">Data de Emissão</Label>
+                <Label htmlFor="edit-issue-date">Data de Emissão *</Label>
                 <Input
                   id="edit-issue-date"
                   type="date"
-                  value={editingInvoice.issueDate.split('/').reverse().join('-')}
-                  onChange={(e) => {
-                    const [year, month, day] = e.target.value.split('-');
-                    setEditingInvoice({ ...editingInvoice, issueDate: `${day}/${month}/${year}` });
-                  }}
+                  value={editingInvoice.issue_date}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, issue_date: e.target.value })}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="edit-due-date">Data de Vencimento</Label>
+                <Label htmlFor="edit-due-date">Data de Vencimento *</Label>
                 <Input
                   id="edit-due-date"
                   type="date"
-                  value={editingInvoice.dueDate.split('/').reverse().join('-')}
-                  onChange={(e) => {
-                    const [year, month, day] = e.target.value.split('-');
-                    setEditingInvoice({ ...editingInvoice, dueDate: `${day}/${month}/${year}` });
-                  }}
+                  value={editingInvoice.due_date}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, due_date: e.target.value })}
                 />
               </div>
 
@@ -374,6 +631,103 @@ export default function Billing() {
             </Button>
             <Button onClick={handleSaveInvoice}>
               Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Invoice Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nova Cobrança</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="new-client">Cliente *</Label>
+              <Select
+                value={newInvoice.client_id}
+                onValueChange={(value) => setNewInvoice({ ...newInvoice, client_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="new-description">Descrição</Label>
+              <Input
+                id="new-description"
+                value={newInvoice.description || ""}
+                onChange={(e) => setNewInvoice({ ...newInvoice, description: e.target.value })}
+                placeholder="Descrição do serviço"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="new-amount">Valor *</Label>
+              <Input
+                id="new-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={newInvoice.amount || ""}
+                onChange={(e) => setNewInvoice({ ...newInvoice, amount: parseFloat(e.target.value) })}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="new-issue-date">Data de Emissão *</Label>
+              <Input
+                id="new-issue-date"
+                type="date"
+                value={newInvoice.issue_date || ""}
+                onChange={(e) => setNewInvoice({ ...newInvoice, issue_date: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="new-due-date">Data de Vencimento *</Label>
+              <Input
+                id="new-due-date"
+                type="date"
+                value={newInvoice.due_date || ""}
+                onChange={(e) => setNewInvoice({ ...newInvoice, due_date: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="new-status">Status</Label>
+              <Select 
+                value={newInvoice.status || "pendente"} 
+                onValueChange={(value) => setNewInvoice({ ...newInvoice, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="vencida">Vencida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateInvoice}>
+              Criar Cobrança
             </Button>
           </div>
         </DialogContent>

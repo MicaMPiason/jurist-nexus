@@ -65,6 +65,48 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string
+          description: string | null
+          due_date: string
+          id: string
+          issue_date: string
+          service_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          client_id: string
+          created_at?: string
+          description?: string | null
+          due_date: string
+          id?: string
+          issue_date: string
+          service_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string
+          id?: string
+          issue_date?: string
+          service_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       processes: {
         Row: {
           client_id: string
