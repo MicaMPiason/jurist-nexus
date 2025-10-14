@@ -5,9 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { MetricsCard } from "@/components/MetricsCard";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+
+type Invoice = {
+  id: string;
+  client: string;
+  service: string;
+  amount: string;
+  dueDate: string;
+  status: string;
+  issueDate: string;
+};
 
 export default function Billing() {
+  const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const metrics = [
     {
       title: "Receita Total",
@@ -58,6 +75,23 @@ export default function Billing() {
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
+  };
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveInvoice = () => {
+    if (!editingInvoice) return;
+    
+    toast({
+      title: "Cobrança atualizada",
+      description: "A cobrança foi atualizada com sucesso.",
+    });
+    
+    setIsEditDialogOpen(false);
+    setEditingInvoice(null);
   };
 
   return (
@@ -191,7 +225,7 @@ export default function Billing() {
                             <CreditCard className="h-4 w-4 mr-2" />
                             Marcar como Pago
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditInvoice(invoice)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
@@ -254,6 +288,96 @@ export default function Billing() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Cobrança</DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-client">Cliente</Label>
+                <Input
+                  id="edit-client"
+                  value={editingInvoice.client}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, client: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service">Serviço</Label>
+                <Input
+                  id="edit-service"
+                  value={editingInvoice.service}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, service: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-amount">Valor</Label>
+                <Input
+                  id="edit-amount"
+                  value={editingInvoice.amount}
+                  onChange={(e) => setEditingInvoice({ ...editingInvoice, amount: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-issue-date">Data de Emissão</Label>
+                <Input
+                  id="edit-issue-date"
+                  type="date"
+                  value={editingInvoice.issueDate.split('/').reverse().join('-')}
+                  onChange={(e) => {
+                    const [year, month, day] = e.target.value.split('-');
+                    setEditingInvoice({ ...editingInvoice, issueDate: `${day}/${month}/${year}` });
+                  }}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-due-date">Data de Vencimento</Label>
+                <Input
+                  id="edit-due-date"
+                  type="date"
+                  value={editingInvoice.dueDate.split('/').reverse().join('-')}
+                  onChange={(e) => {
+                    const [year, month, day] = e.target.value.split('-');
+                    setEditingInvoice({ ...editingInvoice, dueDate: `${day}/${month}/${year}` });
+                  }}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <Select 
+                  value={editingInvoice.status.toLowerCase()} 
+                  onValueChange={(value) => setEditingInvoice({ ...editingInvoice, status: value.charAt(0).toUpperCase() + value.slice(1) })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="vencida">Vencida</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveInvoice}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
