@@ -26,7 +26,11 @@ const Services = () => {
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>('');
+  const [selectedEditClient, setSelectedEditClient] = useState<string>('');
+  const [editProcesses, setEditProcesses] = useState<Process[]>([]);
   const [newService, setNewService] = useState({
     name: '',
     description: '',
@@ -50,6 +54,14 @@ const Services = () => {
       setProcesses([]);
     }
   }, [selectedClient]);
+
+  useEffect(() => {
+    if (selectedEditClient) {
+      fetchProcessesByClientForEdit(selectedEditClient);
+    } else {
+      setEditProcesses([]);
+    }
+  }, [selectedEditClient]);
 
   const fetchClients = async () => {
     try {
@@ -82,6 +94,28 @@ const Services = () => {
 
       if (error) throw error;
       setProcesses(data || []);
+    } catch (error) {
+      toast({
+        title: "Erro ao carregar processos",
+        description: "Não foi possível carregar os processos do cliente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchProcessesByClientForEdit = async (clientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('processes')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setEditProcesses(data || []);
     } catch (error) {
       toast({
         title: "Erro ao carregar processos",
@@ -174,6 +208,56 @@ const Services = () => {
       toast({
         title: "Erro ao criar serviço",
         description: "Não foi possível criar o serviço.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditService = (service: Service) => {
+    setEditingService(service);
+    setSelectedEditClient(service.client_id);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEditedService = async () => {
+    if (!editingService) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .update({
+          name: editingService.name,
+          description: editingService.description,
+          client_id: editingService.client_id,
+          process_id: editingService.process_id,
+          value: editingService.value,
+          next_task: editingService.next_task,
+          next_task_date: editingService.next_task_date,
+          status: editingService.status
+        })
+        .eq('id', editingService.id)
+        .select(`
+          *,
+          client:clients(*),
+          process:processes(*)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      setServices(services.map(s => s.id === editingService.id ? data : s));
+      setEditingService(null);
+      setSelectedEditClient('');
+      setIsEditDialogOpen(false);
+      
+      toast({
+        title: "Serviço atualizado",
+        description: "O serviço foi atualizado com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar serviço",
+        description: "Não foi possível atualizar o serviço.",
         variant: "destructive",
       });
     }
@@ -468,7 +552,7 @@ const Services = () => {
                               <CheckCircle className="mr-2 h-4 w-4" />
                               Completar
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditService(service)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
@@ -490,6 +574,132 @@ const Services = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Service Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Serviço</DialogTitle>
+          </DialogHeader>
+          {editingService && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-name">Nome do Serviço</Label>
+                <Input
+                  id="edit-service-name"
+                  value={editingService.name}
+                  onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-description">Descrição</Label>
+                <Textarea
+                  id="edit-service-description"
+                  value={editingService.description || ''}
+                  onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-client">Cliente</Label>
+                <Select 
+                  value={selectedEditClient} 
+                  onValueChange={(value) => {
+                    setSelectedEditClient(value);
+                    setEditingService({ ...editingService, client_id: value, process_id: '' });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-process">Processo</Label>
+                <Select 
+                  value={editingService.process_id} 
+                  onValueChange={(value) => setEditingService({ ...editingService, process_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um processo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editProcesses.map((process) => (
+                      <SelectItem key={process.id} value={process.id}>
+                        {process.number} - {process.subject}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-value">Valor</Label>
+                <Input
+                  id="edit-service-value"
+                  type="number"
+                  step="0.01"
+                  value={editingService.value || ''}
+                  onChange={(e) => setEditingService({ ...editingService, value: e.target.value ? parseFloat(e.target.value) : null })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-next-task">Próxima Tarefa</Label>
+                <Input
+                  id="edit-service-next-task"
+                  value={editingService.next_task || ''}
+                  onChange={(e) => setEditingService({ ...editingService, next_task: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-next-task-date">Data da Próxima Tarefa</Label>
+                <Input
+                  id="edit-service-next-task-date"
+                  type="date"
+                  value={editingService.next_task_date || ''}
+                  onChange={(e) => setEditingService({ ...editingService, next_task_date: e.target.value })}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-service-status">Status</Label>
+                <Select 
+                  value={editingService.status} 
+                  onValueChange={(value: 'ativo' | 'pausado' | 'concluido') => setEditingService({ ...editingService, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ativo">Ativo</SelectItem>
+                    <SelectItem value="pausado">Pausado</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEditedService}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
