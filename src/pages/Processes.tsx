@@ -26,7 +26,6 @@ const Processes = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [newProcess, setNewProcess] = useState({
-    number: '',
     client_id: '',
     type: '',
     court: '',
@@ -82,7 +81,7 @@ const Processes = () => {
   };
 
   const handleAddProcess = async () => {
-    if (!newProcess.client_id || !newProcess.number || !newProcess.type || !newProcess.court || !newProcess.subject) {
+    if (!newProcess.client_id || !newProcess.type || !newProcess.court || !newProcess.subject) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos obrigatórios.",
@@ -100,7 +99,7 @@ const Processes = () => {
         .insert({
           user_id: user.id,
           client_id: newProcess.client_id,
-          number: newProcess.number,
+          number: `PROC-${Date.now()}`,
           type: newProcess.type,
           court: newProcess.court,
           subject: newProcess.subject,
@@ -116,7 +115,6 @@ const Processes = () => {
 
       setProcesses([data, ...processes]);
       setNewProcess({
-        number: '',
         client_id: '',
         type: '',
         court: '',
@@ -321,16 +319,6 @@ const Processes = () => {
               <DialogTitle>Novo Processo</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="number">Número do Processo</Label>
-                <Input
-                  id="number"
-                  placeholder="0001234-56.2024.8.26.0100"
-                  value={newProcess.number}
-                  onChange={(e) => setNewProcess({ ...newProcess, number: e.target.value })}
-                />
-              </div>
-              
               <div className="grid gap-2">
                 <Label htmlFor="client">Cliente</Label>
                 <Select value={newProcess.client_id} onValueChange={(value) => setNewProcess({ ...newProcess, client_id: value })}>
