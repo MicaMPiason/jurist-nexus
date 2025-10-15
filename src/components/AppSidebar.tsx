@@ -44,6 +44,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Dock, DockIcon, DockItem, DockLabel } from "@/components/ui/dock";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -183,31 +184,60 @@ export function AppSidebar() {
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className={({ isActive: navIsActive }) =>
-                        `flex items-center ${collapsed ? "justify-center px-0 mx-1" : "gap-3 px-4 mx-2"} py-3 rounded-lg transition-all duration-200 ${
-                          isActive(item.url)
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-bridge-md"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        }`
-                      }
-                      title={collapsed ? item.title : undefined}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && (
+            {collapsed ? (
+              <div className="flex flex-col items-center py-4">
+                <Dock 
+                  magnification={60} 
+                  distance={100}
+                  panelHeight={48}
+                  className="flex-col gap-2 bg-transparent px-2"
+                >
+                  {items.map((item) => (
+                    <DockItem key={item.title}>
+                      <DockLabel>{item.title}</DockLabel>
+                      <DockIcon>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === "/"}
+                          className={({ isActive: navIsActive }) =>
+                            `flex items-center justify-center w-full h-full rounded-lg transition-all duration-200 ${
+                              isActive(item.url)
+                                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-bridge-md"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            }`
+                          }
+                        >
+                          <item.icon className="h-5 w-5" />
+                        </NavLink>
+                      </DockIcon>
+                    </DockItem>
+                  ))}
+                </Dock>
+              </div>
+            ) : (
+              <SidebarMenu>
+                {items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className={({ isActive: navIsActive }) =>
+                          `flex items-center gap-3 px-4 mx-2 py-3 rounded-lg transition-all duration-200 ${
+                            isActive(item.url)
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-bridge-md"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          }`
+                        }
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
                         <span className="text-sm font-medium">{item.title}</span>
-                      )}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
