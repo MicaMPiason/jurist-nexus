@@ -11,7 +11,6 @@ import Processes from "./pages/Processes";
 import Services from "./pages/Services";
 import CalendarPage from "./pages/CalendarPage";
 import Clients from "./pages/Clients";
-import Billing from "./pages/Billing";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -33,7 +32,6 @@ const App = () => (
               <Route path="/services" element={<Services />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/clients" element={<Clients />} />
-              <Route path="/billing" element={<Billing />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -5,8 +5,7 @@ import {
   Scale, 
   Briefcase, 
   Calendar, 
-  Users, 
-  CreditCard,
+  Users,
   User,
   Settings,
   LogOut,
@@ -52,7 +51,6 @@ const items = [
   { title: "Serviços", url: "/services", icon: Briefcase },
   { title: "Agenda", url: "/calendar", icon: Calendar },
   { title: "Clientes", url: "/clients", icon: Users },
-  { title: "Cobranças", url: "/billing", icon: CreditCard },
 ];
 
 export function AppSidebar() {
