@@ -502,18 +502,47 @@ export default function Billing() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Agosto 2025</span>
-                <span className="font-medium">R$ 1,23</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Julho 2025</span>
-                <span className="font-medium">R$ 0,00</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Junho 2025</span>
-                <span className="font-medium">R$ 0,00</span>
-              </div>
+              {(() => {
+                // Calculate revenues by month for the last 3 months
+                const monthlyRevenues = new Map<string, number>();
+                const now = new Date();
+                
+                // Initialize last 3 months with 0
+                for (let i = 0; i < 3; i++) {
+                  const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                  const key = `${date.getFullYear()}-${date.getMonth()}`;
+                  monthlyRevenues.set(key, 0);
+                }
+                
+                // Sum up paid invoices by month
+                invoices
+                  .filter(inv => inv.status === "pago")
+                  .forEach(inv => {
+                    const date = new Date(inv.issue_date);
+                    const key = `${date.getFullYear()}-${date.getMonth()}`;
+                    monthlyRevenues.set(key, (monthlyRevenues.get(key) || 0) + inv.amount);
+                  });
+                
+                // Convert to array and format
+                return Array.from(monthlyRevenues.entries())
+                  .sort((a, b) => b[0].localeCompare(a[0]))
+                  .map(([key, value]) => {
+                    const [year, month] = key.split('-');
+                    const date = new Date(parseInt(year), parseInt(month), 1);
+                    const monthName = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                    return (
+                      <div key={key} className="flex items-center justify-between py-2">
+                        <span className="text-sm text-muted-foreground capitalize">{monthName}</span>
+                        <span className="font-medium">R$ {value.toFixed(2)}</span>
+                      </div>
+                    );
+                  });
+              })()}
+              {invoices.filter(inv => inv.status === "pago").length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhuma receita registrada
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -524,16 +553,35 @@ export default function Billing() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-warning/5 rounded-lg border border-warning/20">
-                <div>
-                  <p className="text-sm font-medium">Maria da Silva</p>
-                  <p className="text-xs text-muted-foreground">Elaboração de contrato</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-warning">R$ 1,23</p>
-                  <p className="text-xs text-muted-foreground">20/10/2025</p>
-                </div>
-              </div>
+              {(() => {
+                const upcomingInvoices = invoices
+                  .filter(inv => inv.status === "pendente")
+                  .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+                  .slice(0, 3);
+                
+                if (upcomingInvoices.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Nenhum vencimento próximo
+                    </p>
+                  );
+                }
+                
+                return upcomingInvoices.map(invoice => (
+                  <div key={invoice.id} className="flex items-center justify-between p-3 bg-warning/5 rounded-lg border border-warning/20">
+                    <div>
+                      <p className="text-sm font-medium">{invoice.client_name}</p>
+                      <p className="text-xs text-muted-foreground">{invoice.description || invoice.service_name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-warning">R$ {invoice.amount.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(invoice.due_date).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </CardContent>
         </Card>
