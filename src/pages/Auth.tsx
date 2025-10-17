@@ -28,7 +28,7 @@ const testimonials: Testimonial[] = [
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -82,11 +82,16 @@ export default function Auth() {
     setLoading(false);
   };
 
-  const handleGoogleSignIn = () => {
-    toast({
-      title: "Em breve",
-      description: "Login com Google será implementado em breve.",
-    });
+  const handleGoogleSignIn = async () => {
+    const { error } = await signInWithGoogle();
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro no login com Google",
+        description: error.message,
+      });
+    }
   };
 
   const handleResetPassword = () => {
