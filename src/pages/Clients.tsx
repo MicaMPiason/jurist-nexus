@@ -260,7 +260,14 @@ export default function Clients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Novos este Mês</p>
-                <p className="text-2xl font-bold text-card-foreground">2</p>
+                <p className="text-2xl font-bold text-card-foreground">
+                  {clients.filter(client => {
+                    const clientDate = new Date(client.created_at);
+                    const now = new Date();
+                    return clientDate.getMonth() === now.getMonth() && 
+                           clientDate.getFullYear() === now.getFullYear();
+                  }).length}
+                </p>
               </div>
               <div className="p-3 bg-accent/10 text-accent rounded-lg">
                 <Plus className="h-6 w-6" />
@@ -274,7 +281,7 @@ export default function Clients() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Processos Ativos</p>
-                <p className="text-2xl font-bold text-card-foreground">2</p>
+                <p className="text-2xl font-bold text-card-foreground">0</p>
               </div>
               <div className="p-3 bg-secondary/10 text-secondary rounded-lg">
                 <Scale className="h-6 w-6" />
