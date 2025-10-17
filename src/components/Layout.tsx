@@ -35,10 +35,10 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        <main className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b bg-card px-6 shadow-bridge-sm">
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 flex items-center border-b bg-card px-6 shadow-bridge-sm sticky top-0 z-10">
             <SidebarTrigger className="mr-4" />
             <div className="flex-1">
               <div>
@@ -47,10 +47,10 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
           </header>
-          <div className="flex-1 p-6 bg-background">
+          <main className="flex-1 p-6 overflow-auto">
             {children}
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </SidebarProvider>
   );
