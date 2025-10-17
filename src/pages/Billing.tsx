@@ -61,8 +61,8 @@ export default function Billing() {
         .from("invoices")
         .select(`
           *,
-          clients:client_id (name),
-          services:service_id (name)
+          clients!invoices_client_id_fkey (name),
+          services!invoices_service_id_fkey (name)
         `)
         .order("created_at", { ascending: false });
 
