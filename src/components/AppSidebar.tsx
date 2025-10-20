@@ -167,8 +167,8 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div>
-                <h2 className="text-lg font-bold text-sidebar-foreground">Bridge</h2>
-                <p className="text-xs text-sidebar-foreground/70">Legal Management</p>
+                <h2 className="text-lg font-bold text-foreground">Bridge</h2>
+                <p className="text-xs text-muted-foreground">Legal Management</p>
               </div>
             )}
           </div>
@@ -176,7 +176,7 @@ export function AppSidebar() {
 
         <SidebarGroup>
           {!collapsed && (
-            <SidebarGroupLabel className="text-sidebar-foreground/70 px-4">
+            <SidebarGroupLabel className="text-muted-foreground px-4">
               Menu Principal
             </SidebarGroupLabel>
           )}
